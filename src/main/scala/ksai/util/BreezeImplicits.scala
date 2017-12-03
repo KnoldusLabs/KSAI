@@ -1,6 +1,6 @@
 package ksai.util
 
-import breeze.linalg.{DenseMatrix, DenseVector, Transpose}
+import breeze.linalg.{DenseMatrix, DenseVector}
 
 import scala.collection.immutable
 

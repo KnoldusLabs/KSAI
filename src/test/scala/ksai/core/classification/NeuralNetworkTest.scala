@@ -1,7 +1,7 @@
-package ksai
+package ksai.core.classification
 
 import breeze.linalg.{DenseMatrix, DenseVector}
-import ksai.core.classification.{LeastMeanSquares, LogisticSigmoid, Network}
+import ksai.data.parser.ARFFParser
 import org.scalatest.{FlatSpec, Matchers}
 
 
@@ -21,6 +21,16 @@ class NeuralNetworkTest extends FlatSpec with Matchers{
     println(net.net.last.weight)
     println()
     println(net.net.last.delta)
+  }
+
+  it should "Create a network when passed densematrix and its a temoporary test case" in {
+    val arffFile = getClass.getResource("/iris.arff").getPath
+    val arff = ARFFParser.parse(arffFile)
+    val inputNodesNum = arff.data.head.size
+    val network = Network(CrossEntropy, SoftMax, inputNodesNum, 10, 3)
+    val trainedNetwork = network.learn(DenseMatrix(arff.data:_*), arff.target.zipWithIndex.map(_._2).toArray)
+    println(trainedNetwork)
+    assert(trainedNetwork.learningRate != 0)
   }
 
 
