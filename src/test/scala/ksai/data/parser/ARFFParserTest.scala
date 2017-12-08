@@ -17,7 +17,7 @@ class ARFFParserTest extends FlatSpec with Matchers{
     println()
     println(attributes.data)
     println()
-    println(attributes.nominals)
+    println(attributes.labels)
     println()
     println(attributes.relation)
 

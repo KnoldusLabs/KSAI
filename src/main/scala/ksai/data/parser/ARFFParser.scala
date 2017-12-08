@@ -5,10 +5,10 @@ import scala.io.Source
 
 object ARFFParser {
 
-  def parse(filename: String): ARFF = {
+  def parse(filename: String): ARFF[String] = {
     val sourceBuffer = Source.fromFile(filename)
 
-    val result = sourceBuffer.getLines.foldLeft(ARFF()){
+    val result = sourceBuffer.getLines.foldLeft(ARFF[String]()){
       case (arff, line) =>
         if(line.trim.startsWith("%") || line.trim.equals("")){
           arff
@@ -23,7 +23,7 @@ object ARFFParser {
 
               if(attrType.trim.startsWith("{") && attrType.trim.endsWith("}")){
                 val nominals = attrType.trim.drop(1).dropRight(1).split(",").map(_.trim).toList
-                arff.copy(nominals = nominals)
+                arff.copy(labels = nominals)
               } else {
                 val newAttributeList = arff.attributes :+ AttributeMeta(name, attrType)
                 arff.copy(attributes = newAttributeList)

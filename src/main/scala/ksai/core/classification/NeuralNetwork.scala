@@ -61,6 +61,7 @@ case class Network(
       }
   }
 
+  //labels has to fix here
   def learn(features: DenseMatrix[Double], labels: Array[Int]): Network = {
     val target: Array[Double] = Array.fill[Double](this.numUnits.last)(0.0)
     features(*, ::).map{x => Some(x)}.toArray.flatten.zipWithIndex.foldLeft(this) {
@@ -68,7 +69,8 @@ case class Network(
     }
   }
 
-  private def learn(feature: DenseVector[Double], label: Int, target: Array[Double], network: Network, weight: Double = 1.0): Network = {
+  private def learn(feature: DenseVector[Double], label: Int,
+                    target: Array[Double], network: Network, weight: Double = 1.0): Network = {
     if (weight < 0.0) throw new IllegalArgumentException("Invalid weight: " + weight)
 
     if (weight == 0.0) throw new Exception("Ignore the training instance with zero weight.")
@@ -122,10 +124,13 @@ case class Network(
 
   private def propagate(network: Network): List[Layer] = {
     val exceptTheOutputLayer = network.net.dropRight(1)
-    val propagatedLayers: List[Layer] = exceptTheOutputLayer.sliding(2).map {
-      case List(lower, upper) => propagate(lower, upper, false, network) }.toList
+
+    val propagatedLayers: List[Layer] = exceptTheOutputLayer.tail.foldLeft(List(exceptTheOutputLayer.head)){
+      case (resultLayer, upperLayer) => resultLayer :+ propagate(resultLayer.last, upperLayer, false, network)
+    }
     val newOutputLayer = propagate(propagatedLayers.last, network.net.last, true, network)
-    List(network.net.head) ::: propagatedLayers ::: List(newOutputLayer)
+
+    propagatedLayers :+ newOutputLayer
   }
 
 
@@ -210,9 +215,9 @@ case class Network(
   }
 
   private def backpropagate(upper: Layer, lower: Layer): Layer = {
-    val lowerErrors = (0 to lower.units).map {
+    val lowerErrors = (0 to (lower.units-1)).map {
       case lowerIndex =>
-        val upperError: Double = (0 to upper.units).map {
+        val upperError: Double = (0 to (upper.units-1)).map {
           case upperIndex =>
             upper.weight(upperIndex, lowerIndex) * upper.error(upperIndex)
         }.sum
@@ -222,7 +227,7 @@ case class Network(
   }
 
   private def backpropagate(network: Network): Network = {
-   val newNetworkLayers = network.net.dropRight(1).foldRight(List(network.net.last)){
+   val newNetworkLayers = network.net.dropRight(1).tail.foldRight(List(network.net.last)){
       case (layer, result) =>
        val newLowerLayer = backpropagate(result.head, layer)
         List(newLowerLayer) ::: result
@@ -230,13 +235,13 @@ case class Network(
     network.copy(net = newNetworkLayers)
   }
 
-  def adjustWeights(network: Network) = {
+  private def adjustWeights(network: Network) = {
     val adjustedWeightedLayers = network.net.sliding(2).map{
       case List(layer1, layer2) =>
         layer2.error.data.zipWithIndex.map{
           case (error, layer2Index) => layer1.output.toArray.zipWithIndex.map{
             case (layer2Output, layer1index) =>
-              val delta = (1 - momentum) * learningRate * error * layer2Output + momentum * layer1.delta(layer2Index, layer1index)
+              val delta = (1 - momentum) * learningRate * error * layer2Output + momentum * layer2.delta(layer2Index, layer1index)
               layer2.delta(layer2Index, layer1index) = delta
               layer2.weight(layer2Index, layer1index) = layer2.weight(layer2Index, layer1index) + delta
               if(weightDecay != 0.0 && layer1index < layer1.units){
@@ -248,6 +253,34 @@ case class Network(
     }.toList
     val newLayers = network.net.head +: adjustedWeightedLayers
     network.copy(net = newLayers)
+  }
+
+  def setInput(x: Array[Double]) = {
+    if (x.length != this.net.head.units) {
+      throw new IllegalArgumentException(String.format("Invalid input vector size: %d, expected: %d", x.length, this.net.head.units))
+    }
+//    System.arraycopy(x, 0, inputLayer.output, 0, inputLayer.units);
+    val newInputLayer = this.net.head.copy(output = DenseVector(x))
+    val newNet = newInputLayer +: this.net.tail
+    this.copy(net = newNet)
+  }
+
+  def predict(x: Array[Double]): Int = {
+    val newNetwork = setInput(x)
+    propagate(newNetwork)
+
+    if (this.net.last.units == 1) {
+      if (this.net.last.output(0) > 0.5) {
+        0
+      } else {
+        1
+      }
+    } else {
+     val (_, result) =  this.net.last.output.toArray.zipWithIndex.foldLeft((Double.NegativeInfinity, 0)){
+        case ((max, result), (output, index)) => if(output > max) (output, index) else (max, result)
+      }
+      result
+    }
   }
 
 }
@@ -271,11 +304,17 @@ object Network {
 
     val net = numUnits.zipWithIndex.map {
       case (numUnit, index) =>
-        Layer(numUnit, DenseVector.zeros(numUnit + 1), DenseVector.zeros(numUnit + 1),
-          DenseMatrix.rand[Double](numUnit, Try(numUnits(index - 1)).getOrElse(0) + 1),
-          DenseMatrix.zeros[Double](numUnit, Try(numUnits(index - 1)).getOrElse(0) + 1))
+        if(index == 0){
+          new DenseMatrix(0, 0, Array.empty[Double])
+          Layer(numUnit, DenseVector.zeros(numUnit), DenseVector.zeros(numUnit),
+            new DenseMatrix(0, 0, Array.empty[Double]),
+            new DenseMatrix(0, 0, Array.empty[Double]))
+        } else {
+          Layer(numUnit, DenseVector.zeros(numUnit), DenseVector.zeros(numUnit),
+            DenseMatrix.rand[Double](numUnit, numUnits(index - 1)),
+            DenseMatrix.zeros[Double](numUnit, numUnits(index - 1)))
+        }
     }
-
     new Network(dimension = numUnits.head, numOfClass = finalNumClass, net = net, numUnits = numUnits, errorFunction, activationFunction)
   }
 
