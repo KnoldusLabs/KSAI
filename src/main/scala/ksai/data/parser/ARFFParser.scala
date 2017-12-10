@@ -13,13 +13,13 @@ object ARFFParser {
         if(line.trim.startsWith("%") || line.trim.equals("")){
           arff
         } else {
-          if(line.trim.startsWith("@RELATION")){
+          if(line.trim.toUpperCase.startsWith("@RELATION")){
             arff.copy(relation = line.trim.split(" ").filterNot(token =>
-              token.startsWith("@RELATION")).head.trim)
+              token.toUpperCase.startsWith("@RELATION")).head.trim)
           } else {
-            if(line.trim.startsWith("@ATTRIBUTE")) {
+            if(line.trim.toUpperCase.startsWith("@ATTRIBUTE")) {
                val Array(name, attrType) = line.trim.split(" ").filterNot(token =>
-                 token.startsWith("@ATTRIBUTE")).flatMap(token => token.split("\t").filterNot(tok => tok.trim.equals("")))
+                 token.toUpperCase.startsWith("@ATTRIBUTE")).flatMap(token => token.split("\t").filterNot(tok => tok.trim.equals("")))
 
               if(attrType.trim.startsWith("{") && attrType.trim.endsWith("}")){
                 val nominals = attrType.trim.drop(1).dropRight(1).split(",").map(_.trim).toList
@@ -29,7 +29,7 @@ object ARFFParser {
                 arff.copy(attributes = newAttributeList)
               }
             } else {
-                if(line.trim.startsWith("@DATA")){
+                if(line.trim.toUpperCase.startsWith("@DATA")){
                  arff.copy(isDataPresent = true)
                 } else if(arff.isDataPresent) {
                 val splittedData = line.trim.split(",").map(_.trim)

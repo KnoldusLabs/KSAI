@@ -257,9 +257,8 @@ case class Network(
 
   def setInput(x: Array[Double]) = {
     if (x.length != this.net.head.units) {
-      throw new IllegalArgumentException(String.format("Invalid input vector size: %d, expected: %d", x.length, this.net.head.units))
+      throw new IllegalArgumentException(s"Invalid input vector size: ${x.length}, expected: ${this.net.head.units}")
     }
-//    System.arraycopy(x, 0, inputLayer.output, 0, inputLayer.units);
     val newInputLayer = this.net.head.copy(output = DenseVector(x))
     val newNet = newInputLayer +: this.net.tail
     this.copy(net = newNet)
