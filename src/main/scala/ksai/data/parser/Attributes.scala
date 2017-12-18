@@ -6,33 +6,37 @@ case class AttributeMeta(name: String = "", typ: String = "")
 
 
 case class ARFF[A](
-                             relation: String = "",
-                             attributes: List[AttributeMeta] = Nil,
-                             labels: List[A] = Nil,
-                             isDataPresent: Boolean = false,
-                             data: List[Array[Double]] = Nil,
-                             target: List[A] = Nil){
+                    relation: String = "",
+                    attributes: List[AttributeMeta] = Nil,
+                    labels: List[A] = Nil,
+                    isDataPresent: Boolean = false,
+                    data: List[Array[Double]] = Nil,
+                    target: List[A] = Nil) {
 
   private def labelMap: Map[A, Int] = {
-    labels.zipWithIndex.map{case (l, index) => l -> index}.toMap
+    labels.zipWithIndex.map { case (l, index) => l -> index }.toMap
   }
 
   def getNumericTargets: List[Int] = {
     target.map(tgt => labelMap(tgt))
   }
 
+  def getNumericsForRegressions = {
+    target.map{
+      case t: String => t.toDouble
+      case _ => throw new IllegalArgumentException("IT cannot be anything apart from string")
+    }
+  }
+
 }
 
 case class Delimited[A](
-                             relation: String = "",
-                             attributes: List[AttributeMeta] = Nil,
-                             labels: List[A] = Nil,
-                             isDataPresent: Boolean = false,
-                             data: List[Array[Double]] = Nil,
-                             target: List[A] = Nil){
+                         labels: List[A] = Nil,
+                         data: List[Array[Double]] = Nil,
+                         target: List[A] = Nil) {
 
   private def labelMap: Map[A, Int] = {
-    labels.zipWithIndex.map{case (l, index) => l -> index}.toMap
+    labels.zipWithIndex.map { case (l, index) => l -> index }.toMap
   }
 
   def getNumericTargets: List[Int] = {
