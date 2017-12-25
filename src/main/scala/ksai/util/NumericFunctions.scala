@@ -26,4 +26,17 @@ object NumericFunctions {
     }
   }
 
+  def squaredDistance(x: List[Double], y: List[Double]): Double = {
+    if (x.length != y.length) {
+      throw new IllegalArgumentException("Input vector sizes are different.");
+    }
+
+    (x zip y).foldLeft(0.0){
+      case (result, (xVallue, yValue)) =>
+        val diff = xVallue - yValue
+        result + (diff * diff)
+    }
+  }
+
+
 }
