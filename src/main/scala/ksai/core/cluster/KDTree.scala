@@ -122,21 +122,44 @@ case class KDTree(
   }
 
   /**
+    * Given k cluster centroids, this method assigns data to nearest centroids.
+    * The return value is the distortion to the centroids. The parameter sums
+    * will hold the sum of data for each cluster. The parameter counts hold
+    * the number of data of each cluster. If membership is
+    * not null, it should be an array of size n that will be filled with the
+    * index of the cluster [0 - k) that each data point is assigned to.
+    */
+  def clustering(centroids: List[List[Double]], sums: List[List[Double]], counts: List[Int], membership: List[Int]): (Double, List[List[Double]], List[Int], List[Int]) = {
+    val k: Int = centroids.length
+
+    val candidates = (0 to k - 1).toList
+    val newSums = sums.zipWithIndex.map {
+      case (sum, index) =>
+        if (index >= 0 && index < k) {
+          sum.map(_ => 0.0)
+        } else {
+          sum
+        }
+    }
+
+    filter(root, centroids, candidates, k, newSums, counts, membership)
+  }
+
+  /**
     * This determines which clusters all data that are rooted node will be
     * assigned to, and updates sums, counts and membership (if not null)
     * accordingly. Candidates maintains the set of cluster indices which
     * could possibly be the closest clusters for data in this subtree.
     */
   private def filter(node: KDNode, centroids: List[List[Double]], candidates: List[Int], k: Int,
-                     sums: List[List[Double]], counts: List[Int], membership: List[Int]): Double = {
-
-    val d = centroids(0).length
+                     sums: List[List[Double]], counts: List[Int], membership: List[Int]):
+  (Double, List[List[Double]], List[Int], List[Int]) = {
 
     // Determine which mean the node mean is closest to
     val minDist = NumericFunctions.squaredDistance(node.center, centroids(candidates(0)))
     val closest = candidates(0)
 
-    val (newMinDist, newClosest) = candidates.drop(1).take(k).foldLeft((minDist, closest)) {
+    val (_, newClosest) = candidates.drop(1).take(k).foldLeft((minDist, closest)) {
       case ((resMinDist, resClosest), candidate) =>
         val dist = NumericFunctions.squaredDistance(node.center, centroids(candidate))
         if (dist < minDist) {
@@ -144,42 +167,42 @@ case class KDTree(
         } else (resMinDist, resClosest)
     }
 
-    (node.lower, node.upper) match {
-//      case None =>
+    val res = (node.lower, node.upper) match {
       case (Some(lower), Some(upper)) =>
-    val (newCandidates, newK) = candidates.take(k).foldLeft(List[Int](), 0){
-      case ((result, notPrunedIndex), candidate) =>
-        if (!prune(node.center, node.radius, centroids, newClosest, candidate)) {
-          (result :+ candidate, notPrunedIndex + 1)
-        } else {
-          (result :+ 0, notPrunedIndex)
+        val (newCandidates, newK) = candidates.take(k).foldLeft(List[Int](), 0) {
+          case ((result, notPrunedIndex), candidate) =>
+            if (!prune(node.center, node.radius, centroids, newClosest, candidate)) {
+              (result :+ candidate, notPrunedIndex + 1)
+            } else {
+              (result :+ 0, notPrunedIndex)
+            }
         }
+
+        // Recurse if there's at least two
+        if (newK > 1) {
+          val (result1, sums1, counts1, membership1) = filter(lower, centroids, newCandidates, newK, sums, counts, membership)
+          val (result2, sums2, counts2, membership2) = filter(upper, centroids, newCandidates, newK, sums1, counts1, membership1)
+          Some((result1 + result2, sums2, counts2, membership2))
+        } else None
+
+      case _ => None
     }
 
-      // Recurse if there's at least two
-    if (newK > 1) {
-    val result = filter(lower, centroids, newCandidates, newK, sums, counts, membership) +
-      filter(upper, centroids, newCandidates, newK, sums, counts, membership)
-    result
+    res match {
+      case Some(returnResult) => returnResult
+      case _ =>
+        val newClosestSums: List[Double] = (sums(newClosest) zip node.sum).map {
+          case (givenSum, nodeSum) => givenSum + nodeSum
+        }
+        val newSums: List[List[Double]] = sums.patch(newClosest, Seq(newClosestSums), 1)
+        val newCounts: List[Int] = counts.patch(closest, Seq(counts(closest) + node.count), 1)
+        val newMemberShip: List[Int] = index.drop(node.index).take(node.index + node.count).foldLeft(membership) {
+          case (resMembership, idx) => resMembership.patch(idx, Seq(closest), 1)
+        }
+
+        (getNodeCost(node, centroids(newClosest)), newSums, newCounts, newMemberShip)
     }
 
-    }
-
-    // Assigns all data within this node to a single mean
-    for (int i = 0; i < d; i ++){
-      sums[closest][i] += node.sum[i];
-    }
-
-    counts[closest] += node.count;
-
-    if (membership != null) {
-      int last = node.index + node.count;
-      for (int i = node.index; i < last; i ++ ) {
-        membership[index[i]] = closest;
-      }
-    }
-
-    return getNodeCost(node, centroids[closest]);
   }
 
   /**

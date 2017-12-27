@@ -1,5 +1,7 @@
 package ksai.util
 
+import DoubleUtil._
+
 object NumericFunctions {
 
 
@@ -35,6 +37,72 @@ object NumericFunctions {
       case (result, (xVallue, yValue)) =>
         val diff = xVallue - yValue
         result + (diff * diff)
+    }
+  }
+
+  def squaredDistanceWithMissingValues(x: List[Double], y: List[Double]): Double = {
+    val (dist, nonMissing) = (x zip y).foldLeft((0.0,0)){
+      case ((result, nonMissingValue), (xValue, yValue)) =>
+        if(!xValue.nan && !yValue.nan){
+          val distance: Double =xValue - yValue
+          (result + (distance * distance), nonMissingValue + 1)
+        } else {
+          (result, nonMissingValue)
+        }
+    }
+
+    if (dist == 0.0) {
+      Double.MaxValue
+    } else {
+      x.length * dist / nonMissing
+    }
+  }
+
+
+  /**
+  * Jensen-Shannon divergence JS(P||Q) = (KL(P||M) + KL(Q||M)) / 2, where
+  * M = (P+Q)/2. The Jensen-Shannon divergence is a popular
+  * method of measuring the similarity between two probability distributions.
+  * It is also known as information radius or total divergence to the average.
+  * It is based on the Kullback-Leibler divergence, with the difference that
+  * it is always a finite value. The square root of the Jensen-Shannon divergence
+    * is a metric.
+  */
+  def jensenShannonDivergence(x: List[Double], y: List[Double]): Double = {
+    val m = (x zip y).map{
+      case (xValue, yValue) => (xValue + yValue) /2
+    }
+    (kullbackLeiblerDivergence(x, m) + kullbackLeiblerDivergence(y, m)) / 2
+  }
+
+  /**
+    * Kullback-Leibler divergence. The Kullback-Leibler divergence (also
+    * information divergence, information gain, relative entropy, or KLIC)
+    * is a non-symmetric measure of the difference between two probability
+    * distributions P and Q. KL measures the expected number of extra bits
+    * required to code samples from P when using a code based on Q, rather
+    * than using a code based on P. Typically P represents the "true"
+    * distribution of data, observations, or a precise calculated theoretical
+    * distribution. The measure Q typically represents a theory, model,
+    * description, or approximation of P.
+    * <p>
+    * Although it is often intuited as a distance metric, the KL divergence is
+    * not a true metric - for example, the KL from P to Q is not necessarily
+    * the same as the KL from Q to P.
+    */
+  def kullbackLeiblerDivergence(x: List[Double], y: List[Double]):Double = {
+    val (resKL, intersect) = (x zip y).foldLeft((0.0,false)){
+      case((kl, intersection),(xValue, yValue)) =>
+      if(xValue != 0.0 && yValue != 0.0){
+        (kl + (xValue * Math.log(xValue / yValue)), true)
+
+      } else (kl, intersection)
+    }
+
+    if (intersect) {
+      resKL
+    } else {
+      Double.PositiveInfinity
     }
   }
 

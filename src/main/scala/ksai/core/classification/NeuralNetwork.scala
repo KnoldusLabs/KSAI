@@ -62,6 +62,7 @@ case class Network(
   }
 
   //labels has to fix here
+  //TODO: pass Network here to learn well, in smile the network is being used as reference.
   def learn(features: DenseMatrix[Double], labels: Array[Int]): Network = {
     val target: Array[Double] = Array.fill[Double](this.numUnits.last)(0.0)
     features(*, ::).map{x => Some(x)}.toArray.flatten.zipWithIndex.foldLeft(this) {
