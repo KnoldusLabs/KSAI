@@ -206,7 +206,7 @@ object KMeans {
   }
 
   //TODO: as you can see the data is grouped to some chunks. We need to find a way to break the data into pieces
-  //and then apply parallelism in it.
+  //TODO: and then apply parallelism in it.
   private def asyncSquareDistance(data: List[List[Double]], centroids: List[List[Double]], y: List[Int]): (List[Int], Double) = {
     val numThreads = Runtime.getRuntime.availableProcessors * 2
     val numPieces = data.size / numThreads
