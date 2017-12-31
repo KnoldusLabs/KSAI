@@ -4,6 +4,7 @@ import ksai.util.NumericFunctions
 import spire.std.double
 
 import scala.util.Random
+import ksai.util.DoubleUtil._
 
 case class KMeans(
                    k: Int,
@@ -150,6 +151,103 @@ object KMeans {
 
     yList
   }
+
+  def lloyd(data: List[List[Double]], k: Int, maxIter: Int, runs: Int) = {
+    if (k < 2) {
+      throw new IllegalArgumentException("Invalid number of clusters: " + k)
+    }
+
+    if (maxIter <= 0) {
+      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter)
+    }
+
+    if (runs <= 0) {
+      throw new IllegalArgumentException("Invalid number of runs: " + runs)
+    }
+
+    val best = lloyd(data, k, maxIter)
+
+    (0 to runs-1).foldLeft(best){
+      case (prevKmeans, _) =>
+        val kmeans = lloyd(data, k, maxIter)
+        if(kmeans.distortion < prevKmeans.distortion){
+          kmeans
+        } else{
+          prevKmeans
+        }
+    }
+  }
+
+  def lloyd(data: List[List[Double]], k: Int, maxIter: Int) = {
+    if (k < 2) {
+      throw new IllegalArgumentException("Invalid number of clusters: " + k);
+    }
+    if (maxIter <= 0) {
+      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter);
+    }
+    val initialDistortion = Double.MaxValue
+    val y = seed(data, k, EUCLIDEAN)
+    val (resY, distortion, _) = (0 to maxIter -1).foldLeft((y, initialDistortion, true)){
+      case ((prevYs, distortion, isMore), _) =>
+        if(isMore){
+          val (newCentroids, _) = calculateCentroidsAndSize(k, prevYs, data)
+          val (ys, wcss) = asyncSquareDistance(data, newCentroids, prevYs)
+          if (distortion <= wcss) {
+            (ys, distortion, false)
+          } else {
+            (ys, wcss, isMore)
+          }
+        } else (prevYs, distortion, isMore)
+    }
+    val (finalCentroids, finalSize) = calculateCentroidsAndSize(k, resY, data)
+
+    new KMeans(k, resY, finalSize, distortion, finalCentroids)
+
+  }
+
+  //TODO: as you can see the data is grouped to some chunks. We need to find a way to break the data into pieces
+  //and then apply parallelism in it.
+  private def asyncSquareDistance(data: List[List[Double]], centroids: List[List[Double]], y: List[Int]): (List[Int], Double) = {
+    val numThreads = Runtime.getRuntime.availableProcessors * 2
+    val numPieces = data.size / numThreads
+    val dataPieces = data.grouped(numPieces).toList
+    dataPieces.zipWithIndex.foldLeft(y, 0.0){
+      case ((partitionY, partitionWCSS), (pieces, partitionIdx)) =>
+
+        pieces.zipWithIndex.foldLeft((partitionY, partitionWCSS)){
+          case (((prevYS, wcss)), (piece, pieceIdx)) =>
+           val (newNearest, newYs) = centroids.zipWithIndex.foldLeft((Double.MaxValue, prevYS)){
+              case ((nearest, ys), (centroid, idx)) =>
+                val dist = NumericFunctions.squaredDistance(piece, centroid)
+                if(nearest > dist) {
+                  val newYs = y.patch(pieceIdx + (partitionIdx * numPieces), Seq(idx), 1)
+                  (dist, newYs)
+                } else (nearest, ys)
+            }
+            (newYs, wcss + newNearest)
+        }
+    }
+  }
+
+  private def calculateCentroidsAndSize(k: Int, y: List[Int], data: List[List[Double]]) = {
+    val d = data(0).length
+    val initialSize: List[Int] = (0 to k - 1).toList.map(_ => 0)
+    val initialCentroids = (0 to k - 1).toList.map(_ => (0 to d - 1).toList.map(_ => 0.0))
+    val initialND = initialCentroids
+    val reinitializedSize = initialSize.zipWithIndex.map{ case (size, idx) => size + y.filter(_ == idx).size }
+    val (reinitializedCentroids, _) = (y zip data).map {
+      case (yValue: Int, dataList: List[Double]) =>
+        dataList.zipWithIndex.map {
+          case (dt, idx) =>
+            val centroid =  initialCentroids(yValue)(idx) + dt
+            val nd = initialND(yValue)(idx) + 1
+            (centroid / nd, nd)
+        }.unzip
+    }.unzip
+
+    (reinitializedCentroids, reinitializedSize)
+  }
+
 
 }
 
