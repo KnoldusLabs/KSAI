@@ -3,7 +3,7 @@ package ksai.core.cluster
 import ksai.util.NumericFunctions
 import spire.std.double
 
-import scala.util.Random
+import scala.util.{Failure, Random, Success, Try}
 import ksai.util.DoubleUtil._
 
 case class KMeans(
@@ -14,7 +14,21 @@ case class KMeans(
                    centroids: List[List[Double]]
                  ) {
 
-
+  /**
+    * Cluster a new instance.
+    * @param x a new instance.
+    * @return the cluster label, which is the index of nearest centroid.
+    */
+  def predict(x: List[Double]): Int = {
+    val (best, _) = (0 to k-1).foldLeft((0, Double.MaxValue)){
+      case ((bestCluster, minDist), idx) =>
+        val dist = NumericFunctions.squaredDistance(x, centroids(idx))
+        if(dist < minDist){
+          (idx, dist)
+        } else (bestCluster, minDist)
+    }
+    best
+  }
 }
 
 
@@ -65,6 +79,56 @@ object KMeans {
         }
     }
     new KMeans(k = k, y = finalMembership, size = finalCounts, distortion = finalDistortion, centroids = finalCentroids)
+  }
+
+  /**
+    * Clustering data into k clusters. Run the algorithm for given times
+    * and return the best one with smallest distortion.
+    *
+    * @param data    the input data of which each row is a sample.
+    * @param k       the number of clusters.
+    * @param maxIter the maximum number of iterations for each running.
+    * @param runs    the number of runs of K-Means algorithm.
+    */
+  def apply(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): KMeans = {
+    if (k < 2) {
+      throw new IllegalArgumentException("Invalid number of clusters: " + k)
+    }
+
+    if (maxIter <= 0) {
+      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter)
+    }
+
+    if (runs <= 0) {
+      throw new IllegalArgumentException("Invalid number of runs: " + runs)
+    }
+
+    val bbd = KDTree(data)
+
+    val defaultKMeans = apply(bbd, data, k, maxIter)
+
+    Try {
+      //TODO: Do the try portion with async parallelism
+      (0 to runs - 1).foldLeft(defaultKMeans) {
+        case (best, _) =>
+          val nextKMeans = apply(bbd, data, k, maxIter)
+          if (nextKMeans.distortion < best.distortion) {
+            nextKMeans
+          } else best
+      }
+    } match {
+      case Success(kMeans) => kMeans
+      case Failure(ex) =>
+        ex.printStackTrace()
+        (0 to runs - 1).foldLeft(defaultKMeans) {
+          case (best, _) =>
+            val nextKMeans = lloyd(data, k, maxIter)
+            if (nextKMeans.distortion < best.distortion) {
+              nextKMeans
+            } else best
+        }
+    }
+
   }
 
 
@@ -152,7 +216,7 @@ object KMeans {
     yList
   }
 
-  def lloyd(data: List[List[Double]], k: Int, maxIter: Int, runs: Int) = {
+  def lloyd(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): KMeans = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -167,18 +231,18 @@ object KMeans {
 
     val best = lloyd(data, k, maxIter)
 
-    (0 to runs-1).foldLeft(best){
+    (0 to runs - 1).foldLeft(best) {
       case (prevKmeans, _) =>
         val kmeans = lloyd(data, k, maxIter)
-        if(kmeans.distortion < prevKmeans.distortion){
+        if (kmeans.distortion < prevKmeans.distortion) {
           kmeans
-        } else{
+        } else {
           prevKmeans
         }
     }
   }
 
-  def lloyd(data: List[List[Double]], k: Int, maxIter: Int) = {
+  def lloyd(data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k);
     }
@@ -187,9 +251,9 @@ object KMeans {
     }
     val initialDistortion = Double.MaxValue
     val y = seed(data, k, EUCLIDEAN)
-    val (resY, distortion, _) = (0 to maxIter -1).foldLeft((y, initialDistortion, true)){
+    val (resY, distortion, _) = (0 to maxIter - 1).foldLeft((y, initialDistortion, true)) {
       case ((prevYs, distortion, isMore), _) =>
-        if(isMore){
+        if (isMore) {
           val (newCentroids, _) = calculateCentroidsAndSize(k, prevYs, data)
           val (ys, wcss) = asyncSquareDistance(data, newCentroids, prevYs)
           if (distortion <= wcss) {
@@ -211,15 +275,15 @@ object KMeans {
     val numThreads = Runtime.getRuntime.availableProcessors * 2
     val numPieces = data.size / numThreads
     val dataPieces = data.grouped(numPieces).toList
-    dataPieces.zipWithIndex.foldLeft(y, 0.0){
+    dataPieces.zipWithIndex.foldLeft(y, 0.0) {
       case ((partitionY, partitionWCSS), (pieces, partitionIdx)) =>
 
-        pieces.zipWithIndex.foldLeft((partitionY, partitionWCSS)){
+        pieces.zipWithIndex.foldLeft((partitionY, partitionWCSS)) {
           case (((prevYS, wcss)), (piece, pieceIdx)) =>
-           val (newNearest, newYs) = centroids.zipWithIndex.foldLeft((Double.MaxValue, prevYS)){
+            val (newNearest, newYs) = centroids.zipWithIndex.foldLeft((Double.MaxValue, prevYS)) {
               case ((nearest, ys), (centroid, idx)) =>
                 val dist = NumericFunctions.squaredDistance(piece, centroid)
-                if(nearest > dist) {
+                if (nearest > dist) {
                   val newYs = y.patch(pieceIdx + (partitionIdx * numPieces), Seq(idx), 1)
                   (dist, newYs)
                 } else (nearest, ys)
@@ -234,12 +298,12 @@ object KMeans {
     val initialSize: List[Int] = (0 to k - 1).toList.map(_ => 0)
     val initialCentroids = (0 to k - 1).toList.map(_ => (0 to d - 1).toList.map(_ => 0.0))
     val initialND = initialCentroids
-    val reinitializedSize = initialSize.zipWithIndex.map{ case (size, idx) => size + y.filter(_ == idx).size }
+    val reinitializedSize = initialSize.zipWithIndex.map { case (size, idx) => size + y.filter(_ == idx).size }
     val (reinitializedCentroids, _) = (y zip data).map {
       case (yValue: Int, dataList: List[Double]) =>
         dataList.zipWithIndex.map {
           case (dt, idx) =>
-            val centroid =  initialCentroids(yValue)(idx) + dt
+            val centroid = initialCentroids(yValue)(idx) + dt
             val nd = initialND(yValue)(idx) + 1
             (centroid / nd, nd)
         }.unzip
