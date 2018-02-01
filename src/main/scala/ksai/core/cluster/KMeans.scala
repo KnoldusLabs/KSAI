@@ -36,10 +36,10 @@ object KMeans {
 
   def apply(bbd: KDTree, data: List[List[Double]], k: Int, maxIter: Int) = {
     if (k < 2) {
-      throw new IllegalArgumentException("Invalid number of clusters: " + k);
+      throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
     if (maxIter <= 0) {
-      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter);
+      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter)
     }
     val d = data(0).length
     val distortion = Double.MaxValue
@@ -103,7 +103,11 @@ object KMeans {
       throw new IllegalArgumentException("Invalid number of runs: " + runs)
     }
 
+    println(".........before kdtree")
+
     val bbd = KDTree(data)
+
+    println(s"...............${bbd}")
 
     val defaultKMeans = apply(bbd, data, k, maxIter)
 
