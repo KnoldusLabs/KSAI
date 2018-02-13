@@ -36,8 +36,8 @@ case class Network(
                     momentum: Double = 0.0,
                     weightDecay: Double = 0.0 //factor. Regularization term
                   ) {
-  require(numUnits.length >= 2, s"Invalid number of layers: ${numUnits.length}")
-  require(numUnits.filter(_ < 1).isEmpty, "numUnits cannot contain less than 1 value")
+  require(numUnits.lengthCompare(2) >= 0, s"Invalid number of layers: ${numUnits.length}")
+  require(!numUnits.exists(_ < 1), "numUnits cannot contain less than 1 value")
 
   //labels has to fix here
   def learn(features: DenseMatrix[Double], targets: Array[Double]): Network = {
@@ -107,9 +107,9 @@ case class Network(
   }
 
   private def backpropagate(upper: Layer, lower: Layer): Layer = {
-    val lowerErrors = (0 to (lower.units-1)).map {
+    val lowerErrors = (0 until lower.units).map {
       case lowerIndex =>
-        val upperError: Double = (0 to (upper.units-1)).map {
+        val upperError: Double = (0 until upper.units).map {
           case upperIndex =>
             upper.weight(upperIndex, lowerIndex) * upper.error(upperIndex)
         }.sum
@@ -216,8 +216,8 @@ case class Trainer(
                     epochs: Int = 25 //tocastic learning
                   ) {
 
-  require(numUnits.length >= 2, s"Invalid number of layers: ${numUnits.length}")
-  require(numUnits.filter(_ < 1).isEmpty, "numUnits cannot contain less than 1 value")
+  require((numUnits lengthCompare 2) >= 0, s"Invalid number of layers: ${numUnits.length}")
+  require(!numUnits.exists(_ < 1), "numUnits cannot contain less than 1 value")
   require(learningRate > 0, "Learning Rate cannot be 0 or less")
   require(momentum > 0.0 && momentum < 1.0, "Momentum has to be between 0 and 1")
   require(weightDecay > 0.0 && weightDecay < 0.1, "WeightDecay has to be between 0 and .1")
