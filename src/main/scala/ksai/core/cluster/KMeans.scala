@@ -34,14 +34,14 @@ case class KMeans(
 
 object KMeans {
 
-  def apply(bbd: KDTree, data: List[List[Double]], k: Int, maxIter: Int) = {
+  def apply(kdTree: KDTree, data: List[List[Double]], k: Int, maxIter: Int) = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
     if (maxIter <= 0) {
       throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter)
     }
-    val d = data(0).length
+    val d = data.head.length
     val distortion = Double.MaxValue
     val y = seed(data, k, EUCLIDEAN)
     val size: List[Int] = (0 to k - 1).toList.map(_ => 0)
@@ -49,21 +49,21 @@ object KMeans {
     val newSize = y.map(yv => size(yv) + 1)
 
     val newCentroids = (y zip data).map {
-      case (yValue: Int, dataList: List[Double]) =>
-        dataList.zipWithIndex.map {
+      case (yValue: Int, dataRow: List[Double]) =>
+        dataRow.zipWithIndex.map {
           case (dt, idx) => kdInitials(yValue)(idx) + dt
         }
     }
 
     val sizeDivideCentroids = (newSize.zipWithIndex).map {
-      case (s, idx) => newCentroids(idx).map(cen => cen / s)
+      case (sz, idx) => newCentroids(idx).map(centd => centd / sz)
     }
 
-    val (dist, newSums, newCounts, newMembership) = bbd.clustering(sizeDivideCentroids, kdInitials, newSize, y)
+    val (dist, newSums, newCounts, newYs) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
     val (finalDistortion, _, _, finalCounts, finalMembership, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
-      (distortion, dist, newSums, newCounts, newMembership, sizeDivideCentroids)) {
+      (distortion, dist, newSums, newCounts, newYs, sizeDivideCentroids)) {
       case ((resDistortion, resDist, resSums, resCounts, resMembership, resCentroids), _) =>
-        val (dist1, newSums1, newCounts1, newMembership1) = bbd.clustering(resCentroids, resSums, resCounts, resMembership)
+        val (dist1, newSums1, newCounts1, newMembership1) = kdTree.clustering(resCentroids, resSums, resCounts, resMembership)
         val sumReplacedCentroids = ((resCentroids zip resSums) zip size).map {
           case ((sdc, sms), s) =>
             if (s > 0) {
@@ -136,6 +136,33 @@ object KMeans {
   }
 
 
+  private def findDistortionsAndLabels(data: List[List[Double]], distortions: List[Double], y: List[Int],
+                              distanceModel: ClusteringDistance, centroid: List[Double], kCount: Int) = {
+    ((data zip distortions) zip y).map {
+      case ((dataRow, distortion), yValue) =>
+        val dist = distanceModel match {
+          case EUCLIDEAN => NumericFunctions.squaredDistance(dataRow, centroid)
+          case EUCLIDEAN_MISSING_VALUES => NumericFunctions.squaredDistanceWithMissingValues(dataRow, centroid)
+          case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(dataRow, centroid)
+        }
+
+        if (dist < distortion) {
+          (dist, kCount - 1)
+        } else (distortion, yValue)
+    }.unzip
+  }
+
+  private def findCentroid(distortions: List[Double], cutOff: Double) = {
+    distortions.foldLeft((0.0, 0)) {
+      case ((cost, index), distortion) =>
+        val costSum = cost + distortion
+        if (costSum >= cutOff) {
+          (cost, index)
+        } else (cost, index + 1)
+    }
+  }
+
+
   /**
     * Initialize cluster membership of input objects with KMeans++ algorithm.
     * Many clustering methods, e.g. k-means, need a initial clustering
@@ -171,50 +198,31 @@ object KMeans {
     * @param k    the number of cluster.
     * @return the cluster labels.
     */
-  def seed(data: List[List[Double]], k: Int, distance: ClusteringDistance): List[Int] = {
+  def seed(data: List[List[Double]], k: Int, distanceModel: ClusteringDistance): List[Int] = {
     val n = data.length
     val centroid: List[Double] = data(Random.self.nextInt(n))
-    val d: List[Double] = (0 to n - 1).toList.map(_ => Double.MaxValue)
+    val distortions: List[Double] = (0 to n - 1).toList.map(_ => Double.MaxValue)
     val y: List[Int] = (0 to n - 1).toList.map(_ => 0)
 
-    val (ds, ys, centroids) = (1 to k - 1).toList.foldLeft((d, y, List[Double]())) {
+    val (newDistortions, ys, newCentroids) = (1 to k - 1).toList.foldLeft((distortions, y, List[Double]())) {
       case ((resDList, resYList, resCentroid), j) =>
+        val (newDistortions, labels) = findDistortionsAndLabels(data, resDList, resYList, distanceModel, centroid, j)
+        val cutoff: Double = Math.random() * newDistortions.sum
+        val (_, centroidIndex) = findCentroid(newDistortions, cutoff)
 
-        val (dList, yList) = ((data zip resDList) zip resYList).map {
-          case ((dataList, dValue), yValue) =>
-            val dist = distance match {
-              case EUCLIDEAN => NumericFunctions.squaredDistance(dataList, centroid)
-              case EUCLIDEAN_MISSING_VALUES => NumericFunctions.squaredDistanceWithMissingValues(dataList, centroid)
-              case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(dataList, centroid)
-            }
-
-            if (dist < dValue) {
-              (dist, j - 1)
-            } else (dValue, yValue)
-        }.unzip
-
-        val cutoff: Double = Math.random() * dList.sum
-
-        val (_, index) = dList.foldLeft((0.0, 0)) {
-          case ((cost, index), dValue) =>
-            val costSum = cost + dValue
-            if (costSum >= cutoff) {
-              (cost, index)
-            } else (cost, index + 1)
-        }
-        (dList, yList, data(index))
+        (newDistortions, labels, data(centroidIndex))
     }
 
-    val (_, yList) = ((data zip ds) zip ys).map {
-      case ((dataList, dValue), yValue) =>
-        val dist = distance match {
-          case EUCLIDEAN => NumericFunctions.squaredDistance(dataList, centroids)
-          case EUCLIDEAN_MISSING_VALUES => NumericFunctions.squaredDistanceWithMissingValues(dataList, centroids)
-          case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(dataList, centroids)
+    val (_, yList) = ((data zip newDistortions) zip ys).map {
+      case ((dataRow, distortion), yValue) =>
+        val dist = distanceModel match {
+          case EUCLIDEAN => NumericFunctions.squaredDistance(dataRow, newCentroids)
+          case EUCLIDEAN_MISSING_VALUES => NumericFunctions.squaredDistanceWithMissingValues(dataRow, newCentroids)
+          case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(dataRow, newCentroids)
         }
-        if (dist < dValue) {
+        if (dist < distortion) {
           (dist, k - 1)
-        } else (dValue, yValue)
+        } else (distortion, yValue)
     }.unzip
 
     yList
