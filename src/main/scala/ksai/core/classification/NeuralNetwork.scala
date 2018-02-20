@@ -22,16 +22,9 @@ case object LogisticSigmoid extends ActivationFunction
 
 case object SoftMax extends ActivationFunction
 
-case class Layer(
-                  units: Int,
-                  output: DenseVector[Double],
-                  error: DenseVector[Double],
-                  weight: DenseMatrix[Double],
-                  delta: DenseMatrix[Double]
-                )
+case class Layer(units: Int, output: DenseVector[Double], error: DenseVector[Double], weight: DenseMatrix[Double], delta: DenseMatrix[Double])
 
-case class Network(
-                    dimension: Int, //Number of feature
+case class Network( dimension: Int, //Number of feature
                     numOfClass: Int,
                     net: Seq[Layer],
                     numUnits: Seq[Int],
@@ -42,23 +35,16 @@ case class Network(
                     weightDecay: Double = 0.0 //factor. Regularization term
                     //                    target: DenseVector[Double]
                   ) {
-  require(numUnits.length >= 2, s"Invalid number of layers: ${numUnits.length}")
-  require(numUnits.filter(_ < 1).isEmpty, "numUnits cannot contain less than 1 value")
+  require(numUnits.lengthCompare(2) >= 0, s"Invalid number of layers: ${numUnits.length}")
+  require(!numUnits.exists(_ < 1), "numUnits cannot contain less than 1 value")
   require(validateErrorAndActivationFunc == "perfect", validateErrorAndActivationFunc)
 
-  private def validateErrorAndActivationFunc: String = errorFunction match {
-    case LeastMeanSquares =>
-      activationFunction match {
-        case SoftMax => "Sofmax activation function is invalid for least mean squares error."
-        case _ => "perfect"
-      }
-    case CrossEntropy =>
-      activationFunction match {
-        case Linear => "Linear activation function is invalid with cross entropy error."
-        case SoftMax if numUnits.last == 1 => "Softmax activation function is for multi-class."
-        case LogisticSigmoid if numUnits.last != 1 => "For cross entropy error, logistic sigmoid output is for binary classification."
-        case _ => "perfect"
-      }
+  private lazy val validateErrorAndActivationFunc: String = (errorFunction, activationFunction) match {
+    case (LeastMeanSquares, SoftMax) => "SofMax activation function is invalid for least mean squares error."
+    case (CrossEntropy, Linear) => "Linear activation function is invalid with cross entropy error."
+    case (CrossEntropy, SoftMax) if numUnits.last == 1 => "SoftMax activation function is for multi-class."
+    case (CrossEntropy, SoftMax) if numUnits.last != 1 => "For cross entropy error, logistic sigmoid output is for binary classification."
+    case (_: ErrorFunction, _: ActivationFunction) => "perfect"
   }
 
   //labels has to fix here
@@ -83,23 +69,14 @@ case class Network(
 
     if (network.net.last.units > 1 && label >= network.net.last.units) throw new IllegalArgumentException("Invalid class label: " + label)
 
-    val targetReinitialized = network.errorFunction match {
-      case CrossEntropy =>
-        network.activationFunction match {
-          case LogisticSigmoid =>
-            if (label == 0) {
-              target.update(0, 1.0)
-              target
-            } else {
-              target.update(0, 0.0)
-              target
-            }
-          case _ =>
-            val allZeroArr = Array.fill[Double](target.length)(0.0)
-            allZeroArr.update(label, 1.0)
-            allZeroArr
-        }
-
+    val targetReinitialized = (network.errorFunction, network.activationFunction) match {
+      case (CrossEntropy, LogisticSigmoid) =>
+        target.update(0, if (label == 0) 1.0 else 0.0)
+        target
+      case (CrossEntropy, _) =>
+        val allZeroArr = Array.fill[Double](target.length)(0.0)
+        allZeroArr.update(label, 1.0)
+        allZeroArr
       case _ =>
         val allZeroArr = Array.fill[Double](target.length)(0.1)
         allZeroArr.update(label, 0.9)
@@ -108,76 +85,66 @@ case class Network(
     learn(feature, targetReinitialized, weight, network)
   }
 
-  def propagate(lower: Layer, upper: Layer, isUpperAOutputLayer: Boolean, network: Network): Layer = {
-    val summedWeights = upper.weight * lower.output
-    network.activationFunction match {
-      case LogisticSigmoid if !isUpperAOutputLayer =>
-        upper.copy(output = summedWeights.map(NumericFunctions.logisticSigmoid))
-      case LogisticSigmoid if isUpperAOutputLayer =>
-        softmax(upper.copy(output = summedWeights))
-      case _ =>
+  def propagate(lowerLayer: Option[Layer], upper: Layer, isUpperAOutputLayer: Boolean, network: Network): Layer = {
+    lowerLayer match {
+      case Some(lower) =>
+        val summedWeights = upper.weight * lower.output
         network.activationFunction match {
+          case LogisticSigmoid if !isUpperAOutputLayer =>
+            upper.copy(output = summedWeights.map(NumericFunctions.logisticSigmoid))
+          case LogisticSigmoid if isUpperAOutputLayer =>
+            softMax(upper.copy(output = summedWeights))
           case Linear | SoftMax => upper.copy(output = summedWeights)
+          case _ => throw new UnsupportedOperationException("Unsupported activation function.")
         }
-      case _ => throw new UnsupportedOperationException("Unsupported activation function.")
+      case None => upper
     }
   }
 
   private def propagate(network: Network): List[Layer] = {
-    val exceptTheOutputLayer = network.net.dropRight(1)
-
-    val propagatedLayers: List[Layer] = exceptTheOutputLayer.tail.foldLeft(List(exceptTheOutputLayer.head)){
-      case (resultLayer, upperLayer) => resultLayer :+ propagate(resultLayer.last, upperLayer, false, network)
+    network.net.reverse.toList match {
+      case outputLayer :: _ => network.net.foldLeft(List.empty[Layer]){
+        (resultLayer, upperLayer) => resultLayer :+ propagate(resultLayer.lastOption, upperLayer, upperLayer == outputLayer, network)
+      }
+      case _ => throw new IllegalArgumentException("At least one layer required")
     }
-    val newOutputLayer = propagate(propagatedLayers.last, network.net.last, true, network)
-
-    propagatedLayers :+ newOutputLayer
   }
 
-
-  def softmax(outputLayer: Layer): Layer = {
-    val outputMax = outputLayer.output.max
-    val max = if (outputLayer.output.max > Double.NegativeInfinity) outputMax else Double.NegativeInfinity
-    val maxExpOutput = outputLayer.output.map(value => Math.exp(value - max))
+  def softMax(outputLayer: Layer): Layer = {
+    val outputMax = max(outputLayer.output)
+    val maximum = if (max(outputLayer.output) > Double.NegativeInfinity) outputMax else Double.NegativeInfinity
+    val maxExpOutput = outputLayer.output.map(value => Math.exp(value - maximum))
     val maxExpSum = sum(maxExpOutput)
     val softMaxedOutput = maxExpOutput.map(_ / maxExpSum)
     outputLayer.copy(output = softMaxedOutput)
   }
 
-
   /*private double computeOutputError(double[] output) {
     return computeOutputError(output, outputLayer.error);
   }*/
 
-
-  def computeOutputError(target: Array[Double], outputLayer: Layer, network: Network): (Double, Array[Double]) = {
+  private def computeOutputError(target: Array[Double], outputLayer: Layer, network: Network): (Double, Array[Double]) = {
     if (target.length != outputLayer.units) {
       throw new IllegalArgumentException(String.format(s"Invalid output vector size: ${target.length}, expected: ${outputLayer.units}"))
     }
-    val gradients = (outputLayer.output.toArray zip target map {
+    val gradients = outputLayer.output.toArray zip target map {
       case (outputValue, targetValue) => outputValue - targetValue
-    })
-    val error = network.errorFunction match {
-      case LeastMeanSquares =>
-        gradients.foldLeft(0.0) {
-          case (result, g) => result + (0.5 * g * g)
-        }
-      case CrossEntropy =>
-        network.activationFunction match {
-          case SoftMax =>
-            (outputLayer.output.toArray zip target map {
-              case (outputValue, targetValue) => targetValue * NumericFunctions.log(outputValue)
-            }).foldLeft(0.0) {
-              case (result, g) => result - g
-            }
-          case LogisticSigmoid =>
-            (outputLayer.output.toArray zip target map {
-              case (outputValue, targetValue) =>
-                -targetValue * NumericFunctions.log(outputValue) - (1.0 - targetValue) * NumericFunctions.log(1.0 - outputValue)
-            }).foldLeft(0.0) {
-              case (_, g) => g
-            }
-        }
+    }
+
+    val defaultError = 0.0
+    val error = (network.errorFunction, network.activationFunction) match {
+      case (LeastMeanSquares, _) =>
+        gradients.foldLeft(defaultError) { (result, g) => result + (0.5 * g * g)}
+      case (CrossEntropy, SoftMax) =>
+        (outputLayer.output.toArray zip target map {
+          case (outputValue, targetValue) => targetValue * NumericFunctions.log(outputValue)
+        }).foldLeft(defaultError) {(result, g) => result - g}
+      case (CrossEntropy, LogisticSigmoid) =>
+        (outputLayer.output.toArray zip target map {
+          case (outputValue, targetValue) =>
+            -targetValue * NumericFunctions.log(outputValue) - (1.0 - targetValue) * NumericFunctions.log(1.0 - outputValue)
+        }).foldLeft(defaultError) {(_, g) => g}
+      case _ => defaultError
     }
 
     val finalGradients = (network.errorFunction, network.activationFunction) match {
@@ -209,28 +176,26 @@ case class Network(
 
     val newNetwork = network.copy(net = newLayers)
 
-    val backPropagatedNetwork = backpropagate(newNetwork)
+    val backPropagatedNetwork = backPropagate(newNetwork)
     val weightAdjustedNetwork = adjustWeights(backPropagatedNetwork)
 
     weightAdjustedNetwork
   }
 
-  private def backpropagate(upper: Layer, lower: Layer): Layer = {
-    val lowerErrors = (0 to (lower.units-1)).map {
-      case lowerIndex =>
-        val upperError: Double = (0 to (upper.units-1)).map {
-          case upperIndex =>
-            upper.weight(upperIndex, lowerIndex) * upper.error(upperIndex)
-        }.sum
-        lower.output(lowerIndex) * (1.0 - lower.output(lowerIndex)) * upperError
+  private def backPropagate(upper: Layer, lower: Layer): Layer = {
+    val lowerErrors = (0 until lower.units).map { lowerIndex =>
+      val upperError: Double = (0 until upper.units).map { upperIndex =>
+        upper.weight(upperIndex, lowerIndex) * upper.error(upperIndex)
+      }.sum
+      lower.output(lowerIndex) * (1.0 - lower.output(lowerIndex)) * upperError
     }
     lower.copy(error = DenseVector(lowerErrors.toArray))
   }
 
-  private def backpropagate(network: Network): Network = {
+  private def backPropagate(network: Network): Network = {
    val newNetworkLayers = network.net.dropRight(1).tail.foldRight(List(network.net.last)){
       case (layer, result) =>
-       val newLowerLayer = backpropagate(result.head, layer)
+       val newLowerLayer = backPropagate(result.head, layer)
         List(newLowerLayer) ::: result
     }
     network.copy(net = newNetworkLayers)
@@ -239,14 +204,14 @@ case class Network(
   private def adjustWeights(network: Network) = {
     val adjustedWeightedLayers = network.net.sliding(2).map{
       case List(layer1, layer2) =>
-        layer2.error.data.zipWithIndex.map{
-          case (error, layer2Index) => layer1.output.toArray.zipWithIndex.map{
+        layer2.error.data.zipWithIndex.foreach{
+          case (error, layer2Index) => layer1.output.toArray.zipWithIndex.foreach{
             case (layer2Output, layer1index) =>
               val delta = (1 - momentum) * learningRate * error * layer2Output + momentum * layer2.delta(layer2Index, layer1index)
-              layer2.delta(layer2Index, layer1index) = delta
-              layer2.weight(layer2Index, layer1index) = layer2.weight(layer2Index, layer1index) + delta
+              layer2.delta((layer2Index, layer1index)) = delta
+              layer2.weight((layer2Index, layer1index)) = layer2.weight(layer2Index, layer1index) + delta
               if(weightDecay != 0.0 && layer1index < layer1.units){
-                layer2.weight(layer2Index, layer1index) = layer2.weight(layer2Index, layer1index) - learningRate * weightDecay
+                layer2.weight((layer2Index, layer1index)) = layer2.weight(layer2Index, layer1index) - learningRate * weightDecay
               }
           }
         }
@@ -256,7 +221,7 @@ case class Network(
     network.copy(net = newLayers)
   }
 
-  def setInput(x: Array[Double]) = {
+  def setInput(x: Array[Double]): Network = {
     if (x.length != this.net.head.units) {
       throw new IllegalArgumentException(s"Invalid input vector size: ${x.length}, expected: ${this.net.head.units}")
     }
@@ -338,26 +303,19 @@ case class Trainer(
                     learningRate: Double = 0.1,
                     momentum: Double = 0.0,
                     weightDecay: Double = 0.0,
-                    epochs: Int = 25 //tocastic learning
+                    epochs: Int = 25 //stochastic learning
                   ) {
 
-  require(numUnits.length >= 2, s"Invalid number of layers: ${numUnits.length}")
-  require(numUnits.filter(_ < 1).isEmpty, "numUnits cannot contain less than 1 value")
+  require(numUnits.lengthCompare(2) >= 0, s"Invalid number of layers: ${numUnits.length}")
+  require(!numUnits.exists(_ < 1), "numUnits cannot contain less than 1 value")
   require(validateErrorAndActivationFunc == "perfect", validateErrorAndActivationFunc)
 
-  private def validateErrorAndActivationFunc: String = errorFunction match {
-    case LeastMeanSquares =>
-      activationFunction match {
-        case SoftMax => "Sofmax activation function is invalid for least mean squares error."
-        case _ => "perfect"
-      }
-    case CrossEntropy =>
-      activationFunction match {
-        case Linear => "Linear activation function is invalid with cross entropy error."
-        case SoftMax if numUnits.last == 1 => "Softmax activation function is for multi-class."
-        case LogisticSigmoid if numUnits.last != 1 => "For cross entropy error, logistic sigmoid output is for binary classification."
-        case _ => "perfect"
-      }
+  private lazy val validateErrorAndActivationFunc: String = (errorFunction, activationFunction) match {
+    case (LeastMeanSquares, SoftMax) => "SofMax activation function is invalid for least mean squares error."
+    case (CrossEntropy, Linear) => "Linear activation function is invalid with cross entropy error."
+    case (CrossEntropy, SoftMax) if numUnits.last == 1 => "SoftMax activation function is for multi-class."
+    case (CrossEntropy, SoftMax) if numUnits.last != 1 => "For cross entropy error, logistic sigmoid output is for binary classification."
+    case (_: ErrorFunction, _: ActivationFunction) => "perfect"
   }
 
   /*def train(features: DenseMatrix[Double], labels: Array[Int], target: Array[Double]): Network = {

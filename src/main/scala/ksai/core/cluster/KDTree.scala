@@ -208,7 +208,7 @@ case class KDTree(
         }
         val newSums: List[List[Double]] = sums.patch(newClosest, Seq(newClosestSums), 1)
         val newCounts: List[Int] = counts.patch(closest, Seq(counts(closest) + node.count), 1)
-        val newMemberShip: List[Int] = index.drop(node.index).take(node.index + node.count).foldLeft(membership) {
+        val newMemberShip: List[Int] = index/*.drop(node.index).take(node.index + node.count)*/.foldLeft(membership) {
           case (resMembership, idx) => resMembership.patch(idx, Seq(closest), 1)
         }
 
