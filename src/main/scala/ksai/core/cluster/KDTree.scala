@@ -14,10 +14,10 @@ case class KDTree(
     * @param data
     * @return
     */
-  private def getLowerAndUpperBound(data: List[List[Double]]): (List[Double], List[Double]) = {
-    val lowBound = data.head
-    val uppBound = data.head
-    data.foldLeft((lowBound, uppBound)) {
+  private def getLowerAndUpperBound(data: List[(List[Double], Int)]): (List[Double], List[Double]) = {
+    val lowBound = data.unzip._1.head
+    val uppBound = data.unzip._1.head
+    data.unzip._1.foldLeft((lowBound, uppBound)) {
       case ((lbResult, ubResult), dataList) =>
         dataList.zipWithIndex.foldLeft((lbResult, ubResult)) {
           case ((lRes, uRes), (dt, idx)) =>
@@ -36,7 +36,7 @@ case class KDTree(
   private def calculateBoundingBox(lowerBound: List[Double], upperBound: List[Double]) = {
     // Calculate bounding box stats
     ((lowerBound zip upperBound) zipWithIndex).foldLeft(
-      (List[Double](), List[Double](), -1.0, -1)) {
+      (List[Double](), List[Double](), -1.0, 0)) {
       case ((centers, radius, mxRadius, splitIdx), ((lb, ub), idx)) =>
         val centerRes = centers :+ ((lb + ub) / 2)
         val rds = ((ub - lb) / 2)
@@ -47,7 +47,8 @@ case class KDTree(
     }
   }
 
-  private def compressList(data: List[List[Double]], splitIndex: Int,
+  //Reserve logic
+  /*private def compressList(data: List[List[Double]], splitIndex: Int,
                            splitCutoff: Double, i1List: List[List[Double]], i2List: List[List[Double]]): (List[List[Double]], List[List[Double]]) = {
     if(data.size < 1){
       (i1List, i2List)
@@ -61,43 +62,51 @@ case class KDTree(
       } else (i1List :+ data.head, i2List :+ data.last)
       compressList(data.drop(1).dropRight(1), splitIndex, splitCutoff, i1Res, i2Res)
     }
+  }*/
+
+  private def splitNodes(data: List[(List[Double], Int)], nodeCenters: List[Double], splitIndex: Int) = {
+    val splitCutoff: Double = nodeCenters(splitIndex)
+//    compressList(data, splitIndex, splitCutoff, Nil, Nil)
+
+    data.foldLeft((List[(List[Double], Int)](), List[(List[Double], Int)]())){
+      case ((res1, res2), (row, index)) => if(row(splitIndex) < splitCutoff){
+        (res1, res2 :+ (row, index))
+      } else {
+        (res1 :+ (row, index), res2)
+      }
+    }
+
   }
 
-  private def splitNodes(data: List[List[Double]], nodeCenters: List[Double], splitIndex: Int) = {
-    val splitCutoff: Double = nodeCenters(splitIndex)
-    compressList(data, splitIndex, splitCutoff, Nil, Nil)
+
+  private def buildNode(data: List[List[Double]]): (KDNode, List[Int]) = {
+    buildNode(data.zipWithIndex)
   }
 
   /**
     * Build a k-d tree from the given set of data.
     */
-  private def buildNode(data: List[List[Double]]/*, begin: Int, end: Int*/): (KDNode, List[Int]) = {
+  private def buildNode(data: List[(List[Double], Int)]): (KDNode, List[Int]) = {
     val count = data.size
-
+    val nodeIndex = data.head._2
     val (lowerBound, upperBound) = getLowerAndUpperBound(data)
     val (nodeCenters, nodeRadiuss, maxRadius, splitIndex) = calculateBoundingBox(lowerBound, upperBound)
 
     // If the max spread is 0, make this a leaf node
     if (maxRadius < 1E-10) {
-      val defafultNodeSum = data.head
+      val defafultNodeSum = data.unzip._1.head
       val nodeSum = if (data.size > 1) {
         defafultNodeSum.map {
           case sum => sum * data.size
         }
       } else defafultNodeSum
 
-      val node = KDNode(count, /*begin,*/ 0.0, nodeCenters, nodeRadiuss, nodeSum)
-      (node, /*index,*/ Nil)
+      val node = KDNode(count, nodeIndex, 0.0, nodeCenters, nodeRadiuss, nodeSum)
+      (node, Nil)
     } else {
-      // Partition the data around the midpoint in this dimension. The
-      // partitioning is done in-place by iterating from left-to-right and
-      // right-to-left in the same way that partioning is done in quicksort.
-
-//      val reverseIndex = end - 1
 
       val (i1Data, i2data) = splitNodes(data, nodeCenters, splitIndex)
 
-      // Create the child nodes
       val (nodeLower, _) = buildNode(i1Data)
       val (nodeUpper, _) = buildNode(i2data)
       val nodeSum = (nodeLower.sum zip nodeUpper.sum).map {
@@ -105,8 +114,8 @@ case class KDTree(
       }
       val nodeMean = nodeSum.map(_ / data.size)
       val nodeCost = getNodeCost(nodeLower, nodeMean) + getNodeCost(nodeUpper, nodeMean)
-      val node = KDNode(count, /*begin, */nodeCost, nodeCenters, nodeRadiuss, nodeSum, Some(nodeLower), Some(nodeUpper))
-      (node, /*nodeIndex*/Nil)
+      val node = KDNode(count, nodeIndex, nodeCost, nodeCenters, nodeRadiuss, nodeSum, Some(nodeLower), Some(nodeUpper))
+      (node, Nil)
     }
   }
 
@@ -141,20 +150,21 @@ case class KDTree(
     * not null, it should be an array of size n that will be filled with the
     * index of the cluster [0 - k) that each data point is assigned to.
     */
-  def clustering(centroids: List[List[Double]], sums: List[List[Double]], counts: List[Int], membership: List[Int]): (Double, List[List[Double]], List[Int], List[Int]) = {
-    val k: Int = centroids.length
+  def clustering(centroids: List[List[Double]], sums: List[List[Double]],
+                 counts: List[Int], y: List[Int]): (Double, List[List[Double]], List[Int], List[Int]) = {
+    val centroidSize: Int = centroids.length
 
-    val candidates = (0 to k - 1).toList
+    val candidates = (0 to centroidSize - 1).toList
     val newSums = sums.zipWithIndex.map {
       case (sum, index) =>
-        if (index >= 0 && index < k) {
+        if (index >= 0 && index < centroidSize) {
           sum.map(_ => 0.0)
         } else {
           sum
         }
     }
 
-    filter(root, centroids, candidates, k, newSums, counts, membership)
+    filter(root, centroids, candidates, centroidSize, newSums, counts, y)
   }
 
   /**
@@ -164,14 +174,14 @@ case class KDTree(
     * could possibly be the closest clusters for data in this subtree.
     */
   private def filter(node: KDNode, centroids: List[List[Double]],
-                     candidates: List[Int], k: Int,sums: List[List[Double]],
-                     counts: List[Int], membership: List[Int]): (Double, List[List[Double]], List[Int], List[Int]) = {
+                     candidates: List[Int], centroidSize: Int, sums: List[List[Double]],
+                     counts: List[Int], y: List[Int]): (Double, List[List[Double]], List[Int], List[Int]) = {
 
     // Determine which mean the node mean is closest to
     val minDist = NumericFunctions.squaredDistance(node.center, centroids(candidates(0)))
     val closest = candidates(0)
 
-    val (_, newClosest) = candidates.drop(1).take(k).foldLeft((minDist, closest)) {
+    val (_, newClosest) = candidates.drop(1).take(centroidSize).foldLeft((minDist, closest)) {
       case ((resMinDist, resClosest), candidate) =>
         val dist = NumericFunctions.squaredDistance(node.center, centroids(candidate))
         if (dist < minDist) {
@@ -181,7 +191,7 @@ case class KDTree(
 
     val res = (node.lower, node.upper) match {
       case (Some(lower), Some(upper)) =>
-        val (newCandidates, newK) = candidates.take(k).foldLeft(List[Int](), 0) {
+        val (newCandidates, newK) = candidates.take(centroidSize).foldLeft(List[Int](), 0) {
           case ((result, notPrunedIndex), candidate) =>
             if (!prune(node.center, node.radius, centroids, newClosest, candidate)) {
               (result :+ candidate, notPrunedIndex + 1)
@@ -192,9 +202,9 @@ case class KDTree(
 
         // Recurse if there's at least two
         if (newK > 1) {
-          val (result1, sums1, counts1, membership1) = filter(lower, centroids, newCandidates, newK, sums, counts, membership)
-          val (result2, sums2, counts2, membership2) = filter(upper, centroids, newCandidates, newK, sums1, counts1, membership1)
-          Some((result1 + result2, sums2, counts2, membership2))
+          val (result1, sums1, counts1, y1) = filter(lower, centroids, newCandidates, newK, sums, counts, y)
+          val (result2, sums2, counts2, y2) = filter(upper, centroids, newCandidates, newK, sums1, counts1, y1)
+          Some((result1 + result2, sums2, counts2, y2))
         } else None
 
       case _ => None
@@ -208,11 +218,18 @@ case class KDTree(
         }
         val newSums: List[List[Double]] = sums.patch(newClosest, Seq(newClosestSums), 1)
         val newCounts: List[Int] = counts.patch(closest, Seq(counts(closest) + node.count), 1)
-        val newMemberShip: List[Int] = index/*.drop(node.index).take(node.index + node.count)*/.foldLeft(membership) {
-          case (resMembership, idx) => resMembership.patch(idx, Seq(closest), 1)
+        val newY: List[Int] = y.zipWithIndex.map{
+          case (yValue, index) => if(index <= node.index && (node.index + node.count) > index) {
+            newClosest
+          } else yValue
         }
 
-        (getNodeCost(node, centroids(newClosest)), newSums, newCounts, newMemberShip)
+
+          index.drop(node.index).take(node.index + node.count).foldLeft(y) {
+          case (resY, idx) => resY.patch(idx, Seq(closest), 1)
+        }
+
+        (getNodeCost(node, centroids(newClosest)), newSums, newCounts, newY)
     }
 
   }
@@ -264,14 +281,14 @@ object KDTree {
     val index = (0 to n - 1).toList
     val emptyNode = KDNode(0)
     val tree = new KDTree(emptyNode, index)
-    val (root, treeIndex) = tree.buildNode(data/*, 0, n*/)
+    val (root, treeIndex) = tree.buildNode(data)
     tree.copy(root = root, index = treeIndex)
   }
 }
 
 case class KDNode(
                    count: Int,
-                   /*index: Int,*/
+                   index: Int, //index in the training data/record
                    cost: Double,
                    center: List[Double],
                    radius: List[Double],
@@ -282,7 +299,7 @@ case class KDNode(
 
 object KDNode {
   def apply(index: Int) = {
-    new KDNode(0, /* index,*/ 0.0, Nil, Nil, Nil)
+    new KDNode(0,  index, 0.0, Nil, Nil, Nil)
   }
 
 }
