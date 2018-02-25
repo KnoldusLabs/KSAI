@@ -1,10 +1,18 @@
 package ksai.core.cluster
 
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.pattern.ask
+import akka.routing.RoundRobinPool
+import akka.util.Timeout
+import scala.concurrent.duration._
+import ksai.multithreading.KAsyncExec._
+import ksai.multithreading.{FindCentroidDistance, KMeansActor}
 import ksai.util.NumericFunctions
-import spire.std.double
 
-import scala.util.{Failure, Random, Success, Try}
-import ksai.util.DoubleUtil._
+import scala.concurrent.Future
+import scala.util.Random
+import scala.util.control.NonFatal
+import ksai.multithreading.KAsyncExec._
 
 case class KMeans(
                    k: Int,
@@ -16,14 +24,15 @@ case class KMeans(
 
   /**
     * Cluster a new instance.
+    *
     * @param x a new instance.
     * @return the cluster label, which is the index of nearest centroid.
     */
   def predict(x: List[Double]): Int = {
-    val (best, _) = (0 to k-1).foldLeft((0, Double.MaxValue)){
+    val (best, _) = (0 to k - 1).foldLeft((0, Double.MaxValue)) {
       case ((bestCluster, minDist), idx) =>
         val dist = NumericFunctions.squaredDistance(x, centroids(idx))
-        if(dist < minDist){
+        if (dist < minDist) {
           (idx, dist)
         } else (bestCluster, minDist)
     }
@@ -34,7 +43,7 @@ case class KMeans(
 
 object KMeans {
 
-  def apply(kdTree: KDTree, data: List[List[Double]], k: Int, maxIter: Int) = {
+  private def init(kdTree: KDTree, data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -44,9 +53,13 @@ object KMeans {
     val d = data.head.length
     val distortion = Double.MaxValue
     val y = seed(data, k, EUCLIDEAN)
+    println(s"............got seed ${y.size}")
     val size: List[Int] = (0 to k - 1).toList.map(_ => 0)
     val kdInitials: List[List[Double]] = (0 to k - 1).toList.map(kv => (0 to d - 1).toList.map(_ => 0.0))
-    val newSize = y.map(yv => size(yv) + 1)
+    val ygroup = y.groupBy(value => value)
+    val newSize: List[Int] = size.zipWithIndex.map {
+      case (_, indx) => ygroup.get(indx).map(_.size).fold(0)(identity)
+    }
 
     val newCentroids = (y zip data).map {
       case (yValue: Int, dataRow: List[Double]) =>
@@ -59,12 +72,14 @@ object KMeans {
       case (sz, idx) => newCentroids(idx).map(centd => centd / sz)
     }
 
-    val (dist, newSums, newCounts, newYs) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
-    val (finalDistortion, _, _, finalCounts, finalMembership, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
-      (distortion, dist, newSums, newCounts, newYs, sizeDivideCentroids)) {
-      case ((resDistortion, resDist, resSums, resCounts, resMembership, resCentroids), _) =>
-        val (dist1, newSums1, newCounts1, newMembership1) = kdTree.clustering(resCentroids, resSums, resCounts, resMembership)
-        val sumReplacedCentroids = ((resCentroids zip resSums) zip size).map {
+    val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
+    println("........Done with first clustering")
+    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
+      (distortion, dist, newSums, labels1, firstClusteredSize, sizeDivideCentroids)) {
+      case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids), idx) =>
+        val (dist1, newSums1, secondClusteredSize, newLabels) = kdTree.clustering(resCentroids, resSums, resCounts, resLabels)
+        println(s"..........................$idx")
+        val sumReplacedCentroids = ((resCentroids zip resSums) zip secondClusteredSize).map {
           case ((sdc, sms), s) =>
             if (s > 0) {
               sms.map(sm => sm / s)
@@ -72,13 +87,13 @@ object KMeans {
         }
 
         if (resDistortion <= dist1) {
-          (resDistortion, resDist, resSums, resCounts, resMembership, resCentroids)
+          (resDistortion, resDist, resSums, resLabels, secondClusteredSize, resCentroids)
         } else {
 
-          (dist1, dist1, newSums1, newCounts1, newMembership1, sumReplacedCentroids)
+          (dist1, dist1, newSums1, newLabels, secondClusteredSize, sumReplacedCentroids)
         }
     }
-    new KMeans(k = k, y = finalMembership, size = finalCounts, distortion = finalDistortion, centroids = finalCentroids)
+    new KMeans(k = k, y = finalLabels, size = finalCounts, distortion = finalDistortion, centroids = finalCentroids)
   }
 
   /**
@@ -90,7 +105,7 @@ object KMeans {
     * @param maxIter the maximum number of iterations for each running.
     * @param runs    the number of runs of K-Means algorithm.
     */
-  def apply(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): KMeans = {
+  def apply(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): Future[KMeans] = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -107,37 +122,45 @@ object KMeans {
 
     val bbd = KDTree(data)
 
-    println(s"...............${bbd}")
+    println(s"...............${bbd.root.count}")
 
-    val defaultKMeans = apply(bbd, data, k, maxIter)
-
-    Try {
-      //TODO: Do the try portion with async parallelism
-      (0 to runs - 1).foldLeft(defaultKMeans) {
-        case (best, _) =>
-          val nextKMeans = apply(bbd, data, k, maxIter)
-          if (nextKMeans.distortion < best.distortion) {
-            nextKMeans
-          } else best
-      }
-    } match {
-      case Success(kMeans) => kMeans
-      case Failure(ex) =>
-        ex.printStackTrace()
-        (0 to runs - 1).foldLeft(defaultKMeans) {
-          case (best, _) =>
-            val nextKMeans = lloyd(data, k, maxIter)
-            if (nextKMeans.distortion < best.distortion) {
+    val defaultKMeans = init(bbd, data, k, maxIter)
+    println(s"...............Got the best distortion ${defaultKMeans.distortion}")
+    val futKMeans: List[Future[KMeans]] = (0 to runs - 1).toList.map {
+      case _ => Future(init(bbd, data, k, maxIter))
+    }
+    Future.sequence(futKMeans).map {
+      case allkmeans =>
+        allkmeans.foldLeft(defaultKMeans) {
+          case (result, nextKMeans) =>
+            if (nextKMeans.distortion < result.distortion) {
               nextKMeans
-            } else best
+            } else result
+        }
+
+    }.recoverWith {
+      case NonFatal(ex) =>
+        ex.printStackTrace()
+        val system = ActorSystem()
+        val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
+        (0 to runs - 1).foldLeft(Future.successful(defaultKMeans)) {
+          case (bestFut, _) =>
+            bestFut.flatMap {
+              case best =>
+                lloyd(data, k, maxIter, actorRouterRef).map {
+                  case nextKMeans =>
+                    if (nextKMeans.distortion < best.distortion) {
+                      nextKMeans
+                    } else best
+                }
+            }
         }
     }
 
   }
 
-
   private def findDistortionsAndLabels(data: List[List[Double]], distortions: List[Double], y: List[Int],
-                              distanceModel: ClusteringDistance, centroid: List[Double], kCount: Int) = {
+                                       distanceModel: ClusteringDistance, centroid: List[Double], kCount: Int) = {
     ((data zip distortions) zip y).map {
       case ((dataRow, distortion), yValue) =>
         val dist = distanceModel match {
@@ -153,7 +176,7 @@ object KMeans {
   }
 
   private def findCentroid(distortions: List[Double], cutOff: Double) = {
-    distortions.foldLeft((0.0, 0)) {
+    distortions.foldLeft((0.0, -1)) {
       case ((cost, index), distortion) =>
         val costSum = cost + distortion
         if (costSum >= cutOff) {
@@ -162,42 +185,6 @@ object KMeans {
     }
   }
 
-
-  /**
-    * Initialize cluster membership of input objects with KMeans++ algorithm.
-    * Many clustering methods, e.g. k-means, need a initial clustering
-    * configuration as a seed.
-    * <p>
-    * K-Means++ is based on the intuition of spreading the k initial cluster
-    * centers away from each other. The first cluster center is chosen uniformly
-    * at random from the data points that are being clustered, after which each
-    * subsequent cluster center is chosen from the remaining data points with
-    * probability proportional to its distance squared to the point's closest
-    * cluster center.
-    * <p>
-    * The exact algorithm is as follows:
-    * <ol>
-    * <li> Choose one center uniformly at random from among the data points. </li>
-    * <li> For each data point x, compute D(x), the distance between x and the nearest center that has already been chosen. </li>
-    * <li> Choose one new data point at random as a new center, using a weighted probability distribution where a point x is chosen with probability proportional to D<sup>2</sup>(x). </li>
-    * <li> Repeat Steps 2 and 3 until k centers have been chosen. </li>
-    * <li> Now that the initial centers have been chosen, proceed using standard k-means clustering. </li>
-    * </ol>
-    * This seeding method gives out considerable improvements in the final error
-    * of k-means. Although the initial selection in the algorithm takes extra time,
-    * the k-means part itself converges very fast after this seeding and thus
-    * the algorithm actually lowers the computation time too.
-    *
-    * <h2>References</h2>
-    * <ol>
-    * <li> D. Arthur and S. Vassilvitskii. "K-means++: the advantages of careful seeding". ACM-SIAM symposium on Discrete algorithms, 1027-1035, 2007.</li>
-    * <li> Anna D. Peterson, Arka P. Ghosh and Ranjan Maitra. A systematic evaluation of different methods for initializing the K-means clustering algorithm. 2010.</li>
-    * </ol>
-    *
-    * @param data data objects to be clustered.
-    * @param k    the number of cluster.
-    * @return the cluster labels.
-    */
   def seed(data: List[List[Double]], k: Int, distanceModel: ClusteringDistance): List[Int] = {
     val n = data.length
     val centroid: List[Double] = data(Random.self.nextInt(n))
@@ -205,30 +192,20 @@ object KMeans {
     val y: List[Int] = (0 to n - 1).toList.map(_ => 0)
 
     val (newDistortions, ys, newCentroids) = (1 to k - 1).toList.foldLeft((distortions, y, List[Double]())) {
-      case ((resDList, resYList, resCentroid), j) =>
-        val (newDistortions, labels) = findDistortionsAndLabels(data, resDList, resYList, distanceModel, centroid, j)
+      case ((foldedDistortions, foldedLabels, resCentroid), j) =>
+        val (newDistortions, labels) = findDistortionsAndLabels(data, foldedDistortions, foldedLabels, distanceModel, centroid, j)
         val cutoff: Double = Math.random() * newDistortions.sum
         val (_, centroidIndex) = findCentroid(newDistortions, cutoff)
 
         (newDistortions, labels, data(centroidIndex))
     }
 
-    val (_, yList) = ((data zip newDistortions) zip ys).map {
-      case ((dataRow, distortion), yValue) =>
-        val dist = distanceModel match {
-          case EUCLIDEAN => NumericFunctions.squaredDistance(dataRow, newCentroids)
-          case EUCLIDEAN_MISSING_VALUES => NumericFunctions.squaredDistanceWithMissingValues(dataRow, newCentroids)
-          case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(dataRow, newCentroids)
-        }
-        if (dist < distortion) {
-          (dist, k - 1)
-        } else (distortion, yValue)
-    }.unzip
+    val (_, finalY) = findDistortionsAndLabels(data, newDistortions, ys, distanceModel, newCentroids, k)
 
-    yList
+    finalY
   }
 
-  def lloyd(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): KMeans = {
+  def lloyd(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): Future[KMeans] = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -240,67 +217,85 @@ object KMeans {
     if (runs <= 0) {
       throw new IllegalArgumentException("Invalid number of runs: " + runs)
     }
+    val system = ActorSystem()
+    val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
 
-    val best = lloyd(data, k, maxIter)
-
-    (0 to runs - 1).foldLeft(best) {
-      case (prevKmeans, _) =>
-        val kmeans = lloyd(data, k, maxIter)
-        if (kmeans.distortion < prevKmeans.distortion) {
-          kmeans
-        } else {
-          prevKmeans
-        }
-    }
+    for {
+      defaultKMeans <- lloyd(data, k, maxIter, actorRouterRef)
+      finalKMeans <- (0 to runs - 1).foldLeft(Future.successful(defaultKMeans)) {
+        case (bestFut, _) =>
+          bestFut.flatMap {
+            case best =>
+              lloyd(data, k, maxIter, actorRouterRef).map {
+                case nextKMeans =>
+                  if (nextKMeans.distortion < best.distortion) {
+                    nextKMeans
+                  } else best
+              }
+          }
+      }
+    } yield finalKMeans
   }
 
-  def lloyd(data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
+  def apply(data: List[List[Double]], k: Int, maxIter: Int): Future[KMeans] = {
+    val system = ActorSystem()
+    val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
+
+    lloyd(data, k, maxIter, actorRouterRef)
+  }
+
+  def lloyd(data: List[List[Double]], k: Int, maxIter: Int, kmeansActorRef: ActorRef): Future[KMeans] = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k);
     }
     if (maxIter <= 0) {
-      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter);
+      throw new IllegalArgumentException("Invalid maximum number of iterations: " + maxIter)
     }
     val initialDistortion = Double.MaxValue
     val y = seed(data, k, EUCLIDEAN)
-    val (resY, distortion, _) = (0 to maxIter - 1).foldLeft((y, initialDistortion, true)) {
-      case ((prevYs, distortion, isMore), _) =>
-        if (isMore) {
-          val (newCentroids, _) = calculateCentroidsAndSize(k, prevYs, data)
-          val (ys, wcss) = asyncSquareDistance(data, newCentroids, prevYs)
-          if (distortion <= wcss) {
-            (ys, distortion, false)
-          } else {
-            (ys, wcss, isMore)
-          }
-        } else (prevYs, distortion, isMore)
+    (0 to maxIter - 1).foldLeft(Future.successful((y, initialDistortion, true))) {
+      case (defaultResult, itr) =>
+        defaultResult.flatMap {
+          case (prevYs, distortion, isMore) =>
+            if (isMore) {
+              val (newCentroids, _) = calculateCentroidsAndSize(k, prevYs, data)
+              asyncSquareDistance(data, newCentroids, prevYs, kmeansActorRef).map {
+                case (ys, wcss) =>
+                  println(s"Iteration $itr")
+                  if (distortion <= wcss) {
+                    (ys, distortion, false)
+                  } else {
+                    (ys, wcss, isMore)
+                  }
+              }
+            } else Future.successful((prevYs, distortion, isMore))
+        }
+    }.map {
+      case (resY, distortion, _) =>
+        val (finalCentroids, finalSize) = calculateCentroidsAndSize(k, resY, data)
+        new KMeans(k, resY, finalSize, distortion, finalCentroids)
     }
-    val (finalCentroids, finalSize) = calculateCentroidsAndSize(k, resY, data)
-
-    new KMeans(k, resY, finalSize, distortion, finalCentroids)
 
   }
 
-  //TODO: as you can see the data is grouped to some chunks. We need to find a way to break the data into pieces
-  //TODO: and then apply parallelism in it.
-  private def asyncSquareDistance(data: List[List[Double]], centroids: List[List[Double]], y: List[Int]): (List[Int], Double) = {
-    val numThreads = Runtime.getRuntime.availableProcessors * 2
-    val numPieces = data.size / numThreads
-    val dataPieces = data.grouped(numPieces).toList
-    dataPieces.zipWithIndex.foldLeft(y, 0.0) {
-      case ((partitionY, partitionWCSS), (pieces, partitionIdx)) =>
+  private def asyncSquareDistance(data: List[List[Double]], centroids: List[List[Double]],
+                                  y: List[Int], kmeansActorRef: ActorRef): Future[(List[Int], Double)] = {
+    implicit val timeout = Timeout(20 seconds)
+    val dataPieces = data.zipWithIndex
+    val centroidIndexAndDistance: List[Future[(Int, Int, Double)]] = dataPieces.map {
+      case (dt, index) => (kmeansActorRef ? FindCentroidDistance(centroids, index, dt)).map {
+        case (yIndex: Int, nearest: Double) => (index, yIndex, nearest)
+      }
+    }
 
-        pieces.zipWithIndex.foldLeft((partitionY, partitionWCSS)) {
-          case (((prevYS, wcss)), (piece, pieceIdx)) =>
-            val (newNearest, newYs) = centroids.zipWithIndex.foldLeft((Double.MaxValue, prevYS)) {
-              case ((nearest, ys), (centroid, idx)) =>
-                val dist = NumericFunctions.squaredDistance(piece, centroid)
-                if (nearest > dist) {
-                  val newYs = y.patch(pieceIdx + (partitionIdx * numPieces), Seq(idx), 1)
-                  (dist, newYs)
-                } else (nearest, ys)
-            }
-            (newYs, wcss + newNearest)
+    Future.sequence(centroidIndexAndDistance).map {
+      case distanceAndYs =>
+        distanceAndYs.foldLeft((y, 0.0)) {
+          case ((ys, wcss), (dataIndex: Int, yIndex: Int, nearest: Double)) =>
+            val newYs = if (yIndex != -1) {
+              ys.patch(dataIndex, Seq(yIndex), 1)
+            } else ys
+            (newYs, wcss + nearest)
         }
     }
   }
@@ -309,21 +304,26 @@ object KMeans {
     val d = data(0).length
     val initialSize: List[Int] = (0 to k - 1).toList.map(_ => 0)
     val initialCentroids = (0 to k - 1).toList.map(_ => (0 to d - 1).toList.map(_ => 0.0))
-    val initialND = initialCentroids
     val reinitializedSize = initialSize.zipWithIndex.map { case (size, idx) => size + y.filter(_ == idx).size }
-    val (reinitializedCentroids, _) = (y zip data).map {
-      case (yValue: Int, dataList: List[Double]) =>
-        dataList.zipWithIndex.map {
-          case (dt, idx) =>
-            val centroid = initialCentroids(yValue)(idx) + dt
-            val nd = initialND(yValue)(idx) + 1
-            (centroid / nd, nd)
-        }.unzip
-    }.unzip
 
+    val yCentIndices = y.groupBy(yValue => yValue)
+
+    val reinitializedCentroids = initialCentroids.zipWithIndex.map {
+      case (initCent, indx) =>
+        yCentIndices.get(indx) match {
+        case Some(numSameLabelData) =>
+          numSameLabelData.foldLeft(initCent) {
+            case (resultList, yIndex) => (data(yIndex) zip resultList).map { case (dt, dt2) => dt + dt2 }
+          } match {
+            case Nil => initCent
+            case dataSum => dataSum.map(_ / numSameLabelData.size)
+          }
+
+        case None => initCent
+        }
+    }
     (reinitializedCentroids, reinitializedSize)
   }
-
 
 }
 
