@@ -20,5 +20,7 @@ libraryDependencies ++= Seq(
   typesafeConfig,
   breeze,
   breezeNative,
-  breezeViz
+  breezeViz,
+  akka,
+  akkaTest
 )

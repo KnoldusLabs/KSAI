@@ -3,10 +3,7 @@ import sbt._
 object Dependencies {
 
   val logbackClassicVer = "1.2.3"
-  val akkaVer = "2.4.19"
   val configVer = "1.3.1"
-
-  val akkaActor = "com.typesafe.akka" %% "akka-actor" % "2.5.4"
 
   val breeze = "org.scalanlp" %% "breeze" % "0.13.2"
 
@@ -17,5 +14,10 @@ object Dependencies {
   val scalaTest = "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 
   val typesafeConfig = "com.typesafe" % "config" % configVer
+
+  val akka = "com.typesafe.akka" %% "akka-actor" % "2.5.9"
+
+  val akkaTest = "com.typesafe.akka" %% "akka-testkit" % "2.5.9" % Test
+
 
 }
