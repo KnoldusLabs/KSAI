@@ -12,9 +12,9 @@ import scala.concurrent.duration._
 import akka.pattern.ask
 import akka.util.Timeout
 
-case class KDTree(
-                   root: KDNode,
-                   index: List[Int]
+case class BBDKDTree(
+                      root: BBDKDNode,
+                      index: List[Int]
                  ) {
 
   /**
@@ -88,14 +88,14 @@ case class KDTree(
   }
 
 
-  private def buildNode(data: List[List[Double]]): (KDNode, List[Int]) = {
+  private def buildNode(data: List[List[Double]]): (BBDKDNode, List[Int]) = {
     buildNode(data.zipWithIndex)
   }
 
   /**
     * Build a k-d tree from the given set of data.
     */
-  private def buildNode(zipData: List[(List[Double], Int)]): (KDNode, List[Int]) = {
+  private def buildNode(zipData: List[(List[Double], Int)]): (BBDKDNode, List[Int]) = {
     val count = zipData.size
     val (data, indices) = zipData.unzip
     val nodeIndex = indices.head
@@ -112,7 +112,7 @@ case class KDTree(
         }
       } else defafultNodeSum
 
-      val node = KDNode(count, nodeIndex, 0.0, nodeCenters, nodeRadiuss, nodeSum)
+      val node = BBDKDNode(count, nodeIndex, 0.0, nodeCenters, nodeRadiuss, nodeSum)
       (node, Nil)
     } else {
 
@@ -125,7 +125,7 @@ case class KDTree(
       }
       val nodeMean = nodeSum.map(_ / zipData.size)
       val nodeCost = getNodeCost(nodeLower, nodeMean) + getNodeCost(nodeUpper, nodeMean)
-      val node = KDNode(count, nodeIndex, nodeCost, nodeCenters, nodeRadiuss, nodeSum, Some(nodeLower), Some(nodeUpper))
+      val node = BBDKDNode(count, nodeIndex, nodeCost, nodeCenters, nodeRadiuss, nodeSum, Some(nodeLower), Some(nodeUpper))
       (node, Nil)
     }
   }
@@ -144,7 +144,7 @@ case class KDTree(
     * The sum is precomputed for each node as cost. This formula follows
     * from expanding both sides as dot products.
     */
-  private def getNodeCost(node: KDNode, center: List[Double]): Double = {
+  private def getNodeCost(node: BBDKDNode, center: List[Double]): Double = {
     val scatter = (node.sum zip center).foldLeft(0.0) {
       case (total, (sum, center)) =>
         val cost = ((sum / node.count) - center)
@@ -177,7 +177,7 @@ case class KDTree(
     result
   }
 
-  private def findClosestCentroidCandidate(node: KDNode, candidates: List[Int],
+  private def findClosestCentroidCandidate(node: BBDKDNode, candidates: List[Int],
                                            centroidSize: Int, centroids: List[List[Double]]) = {
     // Determine which mean the node mean is closest to
     val minDist = NumericFunctions.squaredDistance(node.center, centroids(candidates(0)))
@@ -193,7 +193,7 @@ case class KDTree(
   }
 
 
-  private def pruneAsync(node: KDNode, centroids: List[List[Double]],
+  private def pruneAsync(node: BBDKDNode, centroids: List[List[Double]],
                          candidates: List[Int], centroidSize: Int, closestCentroidCandidate: Int, pruneActorRef: ActorRef) = {
 
     implicit val timeout = Timeout(20 seconds)
@@ -231,9 +231,9 @@ case class KDTree(
     * @param labels
     * @return
     */
-  private def clusterRecursively(node: KDNode, centroids: List[List[Double]],
-                     candidates: List[Int], centroidSize: Int, sums: List[List[Double]],
-                     counts: List[Int], labels: List[Int], pruneActorRef: ActorRef): Future[(Double, List[List[Double]], List[Int], List[Int])] = {
+  private def clusterRecursively(node: BBDKDNode, centroids: List[List[Double]],
+                                 candidates: List[Int], centroidSize: Int, sums: List[List[Double]],
+                                 counts: List[Int], labels: List[Int], pruneActorRef: ActorRef): Future[(Double, List[List[Double]], List[Int], List[Int])] = {
 
     val (_, closestCentroidCandidate) = findClosestCentroidCandidate(node, candidates, centroidSize, centroids)
     val res = (node.lower, node.upper) match {
@@ -312,32 +312,32 @@ case class KDTree(
 
 }
 
-object KDTree {
+object BBDKDTree {
 
   def apply(data: List[List[Double]]) = {
     val n = data.length
     val index = (0 to n - 1).toList
-    val emptyNode = KDNode(0)
-    val tree = new KDTree(emptyNode, index)
+    val emptyNode = BBDKDNode(0)
+    val tree = new BBDKDTree(emptyNode, index)
     val (root, treeIndex) = tree.buildNode(data)
     tree.copy(root = root, index = treeIndex)
   }
 }
 
-case class KDNode(
-                   count: Int,
-                   index: Int, //index in the training data/record
-                   cost: Double,
-                   center: List[Double],
-                   radius: List[Double],
-                   sum: List[Double],
-                   lower: Option[KDNode] = None,
-                   upper: Option[KDNode] = None
+case class BBDKDNode(
+                      count: Int,
+                      index: Int, //index in the training data/record
+                      cost: Double,
+                      center: List[Double],
+                      radius: List[Double],
+                      sum: List[Double],
+                      lower: Option[BBDKDNode] = None,
+                      upper: Option[BBDKDNode] = None
                  )
 
-object KDNode {
+object BBDKDNode {
   def apply(index: Int) = {
-    new KDNode(0,  index, 0.0, Nil, Nil, Nil)
+    new BBDKDNode(0,  index, 0.0, Nil, Nil, Nil)
   }
 
 }
