@@ -43,7 +43,7 @@ case class KMeans(
 
 object KMeans {
 
-  private def init(kdTree: KDTree, data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
+  private def init(kdTree: BBDKDTree, data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -75,23 +75,28 @@ object KMeans {
     val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
     println("........Done with first clustering")
     val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
-      (distortion, dist, newSums, labels1, firstClusteredSize, sizeDivideCentroids)) {
-      case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids), idx) =>
-        val (dist1, newSums1, secondClusteredSize, newLabels) = kdTree.clustering(resCentroids, resSums, resCounts, resLabels)
-        println(s"..........................$idx")
-        val sumReplacedCentroids = ((resCentroids zip resSums) zip secondClusteredSize).map {
-          case ((sdc, sms), s) =>
-            if (s > 0) {
-              sms.map(sm => sm / s)
-            } else sdc
-        }
+      (distortion, dist, newSums, labels1, firstClusteredSize, sizeDivideCentroids, false)) {
+      case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids, isMinimumDistornFound), idx) =>
 
-        if (resDistortion <= dist1) {
-          (resDistortion, resDist, resSums, resLabels, secondClusteredSize, resCentroids)
-        } else {
+        if(!isMinimumDistornFound){
 
-          (dist1, dist1, newSums1, newLabels, secondClusteredSize, sumReplacedCentroids)
-        }
+          val (dist1, newSums1, secondClusteredSize, newLabels) = kdTree.clustering(resCentroids, resSums, resCounts, resLabels)
+          println(s"..........................$idx")
+          val sumReplacedCentroids = ((resCentroids zip resSums) zip secondClusteredSize).map {
+            case ((sdc, sms), s) =>
+              if (s > 0) {
+                sms.map(sm => sm / s)
+              } else sdc
+          }
+
+          if (resDistortion <= dist1) {
+            (resDistortion, resDist, resSums, resLabels, firstClusteredSize, resCentroids, true)
+          } else {
+            (dist1, dist1, newSums1, newLabels, secondClusteredSize, sumReplacedCentroids, isMinimumDistornFound)
+          }
+        } else (resDistortion, resDist, resSums, resLabels, firstClusteredSize, resCentroids, isMinimumDistornFound)
+
+
     }
     new KMeans(k = k, y = finalLabels, size = finalCounts, distortion = finalDistortion, centroids = finalCentroids)
   }
@@ -120,7 +125,7 @@ object KMeans {
 
     println(".........before kdtree")
 
-    val bbd = KDTree(data)
+    val bbd = BBDKDTree(data)
 
     println(s"...............${bbd.root.count}")
 
