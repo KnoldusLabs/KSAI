@@ -136,4 +136,8 @@ object NumericFunctions {
     }
   }
 
+  def log2Pi() = {
+    Math.log(Math.PI * 2)
+  }
+
 }
