@@ -61,21 +61,21 @@ object KMeans {
       case (_, indx) => ygroup.get(indx).map(_.size).fold(0)(identity)
     }
 
-    val newCentroids = (y zip data).map {
+    val rowSumForCentroids = (y zip data).map {
       case (yValue: Int, dataRow: List[Double]) =>
         dataRow.zipWithIndex.map {
           case (dt, idx) => kdInitials(yValue)(idx) + dt
         }
     }
 
-    val sizeDivideCentroids = (newSize.zipWithIndex).map {
-      case (sz, idx) => newCentroids(idx).map(centd => centd / sz)
+    val meanCentroids = (newSize.zipWithIndex).map {
+      case (sz, idx) => rowSumForCentroids(idx).map(centd => centd / sz)
     }
 
-    val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
+    val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(meanCentroids, kdInitials, newSize, y)
     println("........Done with first clustering")
-    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
-      (distortion, dist, newSums, labels1, firstClusteredSize, sizeDivideCentroids, false)) {
+    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids, _) = (1 to maxIter - 1).toList.foldLeft(
+      (distortion, dist, newSums, labels1, firstClusteredSize, meanCentroids, false)) {
       case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids, isMinimumDistornFound), idx) =>
 
         if(!isMinimumDistornFound){
@@ -288,7 +288,7 @@ object KMeans {
     implicit val timeout = Timeout(20 seconds)
     val dataPieces = data.zipWithIndex
     val centroidIndexAndDistance: List[Future[(Int, Int, Double)]] = dataPieces.map {
-      case (dt, index) => (kmeansActorRef ? FindCentroidDistance(centroids, index, dt)).map {
+      case (dataRow, index) => (kmeansActorRef ? FindCentroidDistance(centroids, index, dataRow)).map {
         case (yIndex: Int, nearest: Double) => (index, yIndex, nearest)
       }
     }
