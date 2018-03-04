@@ -74,7 +74,7 @@ object KMeans {
 
     val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(meanCentroids, kdInitials, newSize, y)
     println("........Done with first clustering")
-    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
+    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids, _) = (1 to maxIter - 1).toList.foldLeft(
       (distortion, dist, newSums, labels1, firstClusteredSize, meanCentroids, false)) {
       case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids, isMinimumDistornFound), idx) =>
 
