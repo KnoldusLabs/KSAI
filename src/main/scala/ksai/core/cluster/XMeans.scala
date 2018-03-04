@@ -3,29 +3,31 @@ package ksai.core.cluster
 import ksai.multithreading.{GenerateKMeansWithRuns, KMeansFactory}
 import ksai.util.NumericFunctions
 import akka.pattern._
+import akka.util.Timeout
 
 import scala.concurrent.Future
+import ksai.multithreading.KAsyncExec._
+import akka.util.Timeout
+import scala.concurrent.duration._
 
-/**
-  * BICClusteringAutomation algorithm, an extended K-Means which tries to
-  * automatically determine the number of clusters based on BIC scores.
-  * Starting with only one cluster, the X-Means algorithm goes into action
-  * after each run of K-Means, making local decisions about which subset of the
-  * current centroids should split themselves in order to better fit the data.
-  * The splitting decision is done by computing the Bayesian Information
-  * Criterion (BIC).
-  *
-  * <h2>References</h2>
-  * <ol>
-  * <li> Dan Pelleg and Andrew Moore. X-means: Extending K-means with Efficient Estimation of the Number of Clusters. ICML, 2000. </li>
-  * </ol>
-  *
-  * @see KMeans
-  * @see GMeans
-  */
+
+case class XMeans(
+                   kMeans: KMeans
+                 ){
+  def k: Int = kMeans.k
+  def y: List[Int] = kMeans.y
+  def size: List[Int] = kMeans.size
+  def distortion: Double = kMeans.distortion
+  def centroids: List[List[Double]] = kMeans.centroids
+
+  def predict(x: List[Double]): Int = kMeans.predict(x)
+}
+
 object XMeans {
 
-  def apply(data: List[List[Double]], kmax: Int): XMeans = {
+  implicit val timeout = Timeout(2*60*60 seconds)
+
+  def apply(data: List[List[Double]], kmax: Int): Future[XMeans] = {
     if (kmax < 2) {
       throw new IllegalArgumentException("Invalid parameter kmax = " + kmax)
     }
@@ -35,7 +37,6 @@ object XMeans {
 
     val k = 1
     val size = (0 to k - 1).toList.map(_ => 0)
-    val size[0] = n
     val y = (0 to n - 1).toList.map(_ => 0)
     val centroidRow: List[Double] = data.tail.foldLeft(data.head) {
       case (result, row) => (result zip row).map { case (a, b) => a + b }
@@ -49,23 +50,41 @@ object XMeans {
     }
 
     val distortion = wcss
-    println(String.format("X-Means distortion with %d clusters: %.5f", k, distortion))
+    println(s"X-Means distortion with $k clusters: $distortion")
 
     val bbd = BBDKDTree(data)
-
-
+    val defaultKMeans = KMeans(k, y, size, distortion, centroids)
+    recursiveBIC(data, defaultKMeans, bbd, kmax).map(kmeans => new XMeans(kmeans))
   }
 
-  private def findKRecursively(data: List[List[Double]], y: List[Int], k: Int, columnCount: Int, centroids: List[List[Double]], bbd: BBDKDTree) = {
-    val labelMap = y.zipWithIndex.groupBy { case (value, index) => value }
+  private def recursiveBIC(data: List[List[Double]], defaultKMeans: KMeans, bbd: BBDKDTree, kmax: Int): Future[KMeans] = {
+    getKMeans(data, defaultKMeans, bbd, kmax).flatMap{
+      kmeans => if(defaultKMeans.k >= kmax){
+        Future.successful(defaultKMeans)
+      } else {
+          recursiveBIC(data, kmeans, bbd, kmax)
+      }
+    }
+  }
+
+
+  private def getKMeans(data: List[List[Double]], defaultKMeans: KMeans, bbd: BBDKDTree, kmax: Int): Future[KMeans] = {
+    val columnCount = data(0).size
+    val labelMap = defaultKMeans.y.zipWithIndex.groupBy { case (value, index) => value }
+    println(s"Labels ${defaultKMeans.k}>>>>>>>>>>> ${defaultKMeans.y.distinct}")
     val kmeansGenerator = KMeansFactory.getKMeansGeneratorActor()
-    val kmeansScores = (0 to k - 1).zip(centroids).toList.map {
+    implicit val system = KMeansFactory.system
+    val kmeansScores: List[Future[(Option[KMeans], Option[Double])]] = ((0 to defaultKMeans.k - 1).toList.zip(defaultKMeans.centroids)).map {
       case (kValue, centroid) =>
         labelMap.get(kValue) match {
           case Some(subsetList) =>
-            val subset = subsetList.map { case (value, index) => data(index) }
-            (kmeansGenerator ? GenerateKMeansWithRuns(subset, 2, 100, 4)).map {
+            val subset: List[List[Double]] = subsetList.map { case (value, index) => data(index) }
+            val bbdTree = if(defaultKMeans.k == 1){
+              Some(bbd)
+            } else None
+            val actorResult = (kmeansGenerator ? GenerateKMeansWithRuns(subset, 2, 100, 4, bbdTree)).map {
               case kmeans: KMeans =>
+                println(s"after actor hit ${kmeans.k}>>>>>>>>>>> ${kmeans.y.distinct}")
                 val wcss = subset.foldLeft(0.0) {
                   case (result, subRow) => result + NumericFunctions.squaredDistance(subRow, centroid)
                 }
@@ -73,15 +92,75 @@ object XMeans {
                 val oldBIC = bic(subsetList.size, columnCount, wcss)
                 (Some(kmeans), Some(newBIC - oldBIC))
             }
+            println(s"....kcount $kValue")
+            actorResult
           case None => Future.successful((None, None))
         }
     }
 
     Future.sequence(kmeansScores).map {
       case kmeansScores =>
-        val (kmeansList, scores) = kmeansScores.unzip
-        val centers = scores.zipWithIndex.filter { case (score, index) => score.map(s => s <= 0.0).getOrElse(false) }.map { case (score, index) => centroids(index) }
-        scores.flatten.map
+        val (kmeansList, scores) = kmeansScores.map {
+          case (Some(km), Some(sc)) => Some((km, sc))
+          case _ => None
+        }.flatten.sortWith {
+          case ((_, sc1), (_, sc2)) => sc1 < sc2
+        }.unzip
+        val centers = scores.zipWithIndex.filter { case (score, index) => score <= 0.0 }.map {
+          case (score, index) => defaultKMeans.centroids(index)
+        }
+        val newCenters = (0 to defaultKMeans.k - 1).toList.foldRight(centers) {
+          case (kCount, result) => if (scores(kCount) > 0) {
+            if (result.size + kCount - centers.size + 1 < kmax) {
+              val countMeans = kmeansList(kCount)
+              println(s"...centroids of countmeans ${countMeans.centroids}")
+              (centers :+ countMeans.centroids(0)) :+ countMeans.centroids(1)
+            } else {
+              centers :+ defaultKMeans.centroids(kCount)
+            }
+          } else {
+            centers
+          }
+        }
+
+        if (newCenters.size == defaultKMeans.k) {
+          defaultKMeans
+        } else {
+          val newK = newCenters.size
+          val sums = (0 to newK - 1).toList.map(_ => (0 to newCenters.head.size - 1).toList.map(_ => 0.0))
+          val size = (0 to newK - 1).toList.map(_ => 0)
+
+          val updatedCentroids = newCenters ::: defaultKMeans.centroids.drop(newK)
+          val distortion = Double.MaxValue
+
+          val (finalDistortion, finalCentroids, finalSums, finalSize, finalLabels, _) = (0 to 99).toList.foldLeft(
+            (distortion, updatedCentroids, sums, size, defaultKMeans.y, false)) {
+            case ((distort, upCents, sms, sz, lbls, isStopped), _) =>
+              if (isStopped) {
+                (distort, upCents, sms, sz, lbls, isStopped)
+              } else {
+                val (newDistortion, clusteredSums, clusteredSize, clusteredLabels) = bbd.clustering(upCents, sms, sz, lbls)
+                val clusteredCentroids = updatedCentroids.take(newK).zipWithIndex.map {
+                  case (cent, index) => if (clusteredSize(index) > 0) {
+                    (clusteredSums(index).zip(clusteredSize)).map { case (sum, sz) => sum / sz }
+                  } else {
+                    cent
+                  }
+                }
+                if (distort <= newDistortion) {
+                  (newDistortion, clusteredCentroids, clusteredSums, clusteredSize, clusteredLabels, true)
+                } else {
+                  (newDistortion, clusteredCentroids, clusteredSums, clusteredSize, clusteredLabels, false)
+                }
+              }
+          }
+
+          /*val wcss = (data.zip(finalLabels)).foldLeft(0.0) {
+            case (result, (dataRow, labelValue)) => result + NumericFunctions.squaredDistance(dataRow, finalCentroids(labelValue))
+          }
+          (wcss, finalDistortion, finalCentroids, finalSums, finalSize, finalLabels)*/
+          new KMeans(newK, finalLabels, finalSize, finalDistortion, finalCentroids)
+        }
     }
   }
 
@@ -121,6 +200,3 @@ object XMeans {
 
 }
 
-case class XMeans(
-                   kMeans: KMeans
-                 )

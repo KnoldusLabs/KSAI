@@ -43,7 +43,7 @@ case class KMeans(
 
 object KMeans {
 
-  private def init(kdTree: BBDKDTree, data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
+  private def init(kdTree: BBDKDTree, data: List[List[Double]], k: Int, maxIter: Int)(implicit system: ActorSystem): KMeans = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -74,7 +74,7 @@ object KMeans {
 
     val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
     println("........Done with first clustering")
-    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
+    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids, _) = (1 to maxIter - 1).toList.foldLeft(
       (distortion, dist, newSums, labels1, firstClusteredSize, sizeDivideCentroids, false)) {
       case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids, isMinimumDistornFound), idx) =>
 
@@ -110,7 +110,7 @@ object KMeans {
     * @param maxIter the maximum number of iterations for each running.
     * @param runs    the number of runs of K-Means algorithm.
     */
-  def apply(data: List[List[Double]], k: Int, maxIter: Int, runs: Int): Future[KMeans] = {
+  def apply(data: List[List[Double]], k: Int, maxIter: Int, runs: Int, bbdTree: Option[BBDKDTree] = None)(implicit system: ActorSystem): Future[KMeans] = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -125,7 +125,7 @@ object KMeans {
 
     println(".........before kdtree")
 
-    val bbd = BBDKDTree(data)
+    val bbd = bbdTree.getOrElse(BBDKDTree(data))
 
     println(s"...............${bbd.root.count}")
 
@@ -146,7 +146,6 @@ object KMeans {
     }.recoverWith {
       case NonFatal(ex) =>
         ex.printStackTrace()
-        val system = ActorSystem()
         val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
         (0 to runs - 1).foldLeft(Future.successful(defaultKMeans)) {
           case (bestFut, _) =>

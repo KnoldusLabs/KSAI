@@ -56,23 +56,6 @@ case class BBDKDTree(
     }
   }
 
-  //Reserve logic
-  /*private def compressList(data: List[List[Double]], splitIndex: Int,
-                           splitCutoff: Double, i1List: List[List[Double]], i2List: List[List[Double]]): (List[List[Double]], List[List[Double]]) = {
-    if(data.size < 1){
-      (i1List, i2List)
-    } else if(data.size == 1){
-      (i1List, i2List ::: data)
-    } else {
-      val i1Good = data.head(splitIndex) < splitCutoff
-      val i2Good = data.last(splitIndex) >= splitCutoff
-      val (i1Res, i2Res) = if(!i1Good && !i2Good){
-        (i1List :+ data.last, i2List :+ data.head)
-      } else (i1List :+ data.head, i2List :+ data.last)
-      compressList(data.drop(1).dropRight(1), splitIndex, splitCutoff, i1Res, i2Res)
-    }
-  }*/
-
   private def splitNodes(data: List[(List[Double], Int)], nodeCenters: List[Double], splitIndex: Int) = {
     val splitCutoff: Double = nodeCenters(splitIndex)
 //    compressList(data, splitIndex, splitCutoff, Nil, Nil)
@@ -162,7 +145,7 @@ case class BBDKDTree(
     * index of the cluster [0 - k) that each data point is assigned to.
     */
   def clustering(centroids: List[List[Double]], sums: List[List[Double]],
-                 counts: List[Int], labels: List[Int]): (Double, List[List[Double]], List[Int], List[Int]) = {
+                 counts: List[Int], labels: List[Int])(implicit system: ActorSystem): (Double, List[List[Double]], List[Int], List[Int]) = {
     val centroidSize: Int = centroids.length
 
     val candidates = (0 to centroidSize - 1).toList
@@ -171,7 +154,7 @@ case class BBDKDTree(
       case idx => (1 to sumInsideSize).toList.map(_ => 0.0)
     }
 
-    val system = ActorSystem()
+//    val system = ActorSystem()
     val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
     val result = Await.result(clusterRecursively(root, centroids, candidates, centroidSize, newSums, counts, labels, actorRouterRef), 15 * 60 seconds)
     result

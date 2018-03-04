@@ -1,9 +1,10 @@
 package ksai.multithreading
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor._
 import akka.routing.RoundRobinPool
-import akka.pattern._
-import ksai.core.cluster.KMeans
+import akka.pattern.pipe
+import ksai.core.cluster.{BBDKDTree, KMeans}
+import ksai.multithreading.KAsyncExec._
 
 import scala.concurrent.Future
 
@@ -20,14 +21,23 @@ case class GenerateKMeansWithRuns(
                                    data: List[List[Double]],
                                    k: Int,
                                    maxIter: Int,
-                                   runs: Int
+                                   runs: Int,
+                                   bbdTree: Option[BBDKDTree]
                                  )
 
 
 class KMeansGeneratorActor extends Actor{
   override def receive: Receive = {
-    case GenerateKMeansWithRuns(data: List[List[Double]], k: Int, maxIter: Int, runs: Int) =>
-      val kmeans: Future[KMeans] = KMeans(data, k, maxIter, runs)
-      kmeans pipeTo sender()
+    case GenerateKMeansWithRuns(data: List[List[Double]], k: Int, maxIter: Int, runs: Int, bbdTree) =>
+      implicit val sys = context.system
+      println("Inside actor for kmeans")
+      val actorSender = sender()
+      val kmeans: Future[KMeans] = KMeans(data, k, maxIter, runs, bbdTree)
+      kmeans pipeTo actorSender
+        /*.map{
+        kmean =>
+          println("....KMeans is there")
+          actorSender ! kmean
+      }*/
   }
 }

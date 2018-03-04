@@ -1,5 +1,6 @@
 package ksai.core.clustering
 
+import akka.actor.ActorSystem
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.MultivariateGaussian
 import ksai.core.cluster.KMeans
@@ -41,7 +42,7 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
     val delimited: Delimited[String] = DelimitedParser.parse(zipTraingPath)
     val delimitedTest: Delimited[String] = DelimitedParser.parse(zipTestPath)
     val inputNodesNum = delimited.data.head.size
-
+    implicit val system = ActorSystem()
     KMeans(delimited.data.map(_.toList), 10, 10, 1).map {
       case kmeans =>
         val r1 = RandIndex.measure(delimited.getNumericTargets, kmeans.y)
