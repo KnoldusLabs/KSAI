@@ -43,7 +43,7 @@ case class KMeans(
 
 object KMeans {
 
-  private def init(kdTree: KDTree, data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
+  private def init(kdTree: BBDKDTree, data: List[List[Double]], k: Int, maxIter: Int): KMeans = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
     }
@@ -61,37 +61,42 @@ object KMeans {
       case (_, indx) => ygroup.get(indx).map(_.size).fold(0)(identity)
     }
 
-    val newCentroids = (y zip data).map {
+    val rowSumForCentroids = (y zip data).map {
       case (yValue: Int, dataRow: List[Double]) =>
         dataRow.zipWithIndex.map {
           case (dt, idx) => kdInitials(yValue)(idx) + dt
         }
     }
 
-    val sizeDivideCentroids = (newSize.zipWithIndex).map {
-      case (sz, idx) => newCentroids(idx).map(centd => centd / sz)
+    val meanCentroids = (newSize.zipWithIndex).map {
+      case (sz, idx) => rowSumForCentroids(idx).map(centd => centd / sz)
     }
 
-    val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(sizeDivideCentroids, kdInitials, newSize, y)
+    val (dist, newSums, firstClusteredSize, labels1) = kdTree.clustering(meanCentroids, kdInitials, newSize, y)
     println("........Done with first clustering")
-    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids) = (1 to maxIter - 1).toList.foldLeft(
-      (distortion, dist, newSums, labels1, firstClusteredSize, sizeDivideCentroids)) {
-      case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids), idx) =>
-        val (dist1, newSums1, secondClusteredSize, newLabels) = kdTree.clustering(resCentroids, resSums, resCounts, resLabels)
-        println(s"..........................$idx")
-        val sumReplacedCentroids = ((resCentroids zip resSums) zip secondClusteredSize).map {
-          case ((sdc, sms), s) =>
-            if (s > 0) {
-              sms.map(sm => sm / s)
-            } else sdc
-        }
+    val (finalDistortion, _, _, finalLabels, finalCounts, finalCentroids, _) = (1 to maxIter - 1).toList.foldLeft(
+      (distortion, dist, newSums, labels1, firstClusteredSize, meanCentroids, false)) {
+      case ((resDistortion, resDist, resSums, resLabels, resCounts, resCentroids, isMinimumDistornFound), idx) =>
 
-        if (resDistortion <= dist1) {
-          (resDistortion, resDist, resSums, resLabels, secondClusteredSize, resCentroids)
-        } else {
+        if(!isMinimumDistornFound){
 
-          (dist1, dist1, newSums1, newLabels, secondClusteredSize, sumReplacedCentroids)
-        }
+          val (dist1, newSums1, secondClusteredSize, newLabels) = kdTree.clustering(resCentroids, resSums, resCounts, resLabels)
+          println(s"..........................$idx")
+          val sumReplacedCentroids = ((resCentroids zip resSums) zip secondClusteredSize).map {
+            case ((sdc, sms), s) =>
+              if (s > 0) {
+                sms.map(sm => sm / s)
+              } else sdc
+          }
+
+          if (resDistortion <= dist1) {
+            (resDistortion, resDist, resSums, resLabels, firstClusteredSize, resCentroids, true)
+          } else {
+            (dist1, dist1, newSums1, newLabels, secondClusteredSize, sumReplacedCentroids, isMinimumDistornFound)
+          }
+        } else (resDistortion, resDist, resSums, resLabels, firstClusteredSize, resCentroids, isMinimumDistornFound)
+
+
     }
     new KMeans(k = k, y = finalLabels, size = finalCounts, distortion = finalDistortion, centroids = finalCentroids)
   }
@@ -120,7 +125,7 @@ object KMeans {
 
     println(".........before kdtree")
 
-    val bbd = KDTree(data)
+    val bbd = BBDKDTree(data)
 
     println(s"...............${bbd.root.count}")
 
@@ -283,7 +288,7 @@ object KMeans {
     implicit val timeout = Timeout(20 seconds)
     val dataPieces = data.zipWithIndex
     val centroidIndexAndDistance: List[Future[(Int, Int, Double)]] = dataPieces.map {
-      case (dt, index) => (kmeansActorRef ? FindCentroidDistance(centroids, index, dt)).map {
+      case (dataRow, index) => (kmeansActorRef ? FindCentroidDistance(centroids, index, dataRow)).map {
         case (yIndex: Int, nearest: Double) => (index, yIndex, nearest)
       }
     }
