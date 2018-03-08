@@ -6,7 +6,7 @@ import ksai.util.NumericFunctions
 
 import scala.concurrent.{Await, Future}
 import ksai.multithreading.KAsyncExec._
-import ksai.multithreading.{KMeansActor, PruneDetail}
+import ksai.multithreading._
 
 import scala.concurrent.duration._
 import akka.pattern.ask
@@ -15,7 +15,7 @@ import akka.util.Timeout
 case class BBDKDTree(
                       root: BBDKDNode,
                       index: List[Int]
-                 ) {
+                    ) {
 
   /**
     * Lowerbound is basically the collection of minimum of each feature.
@@ -58,13 +58,13 @@ case class BBDKDTree(
 
   private def splitNodes(data: List[(List[Double], Int)], nodeCenters: List[Double], splitIndex: Int) = {
     val splitCutoff: Double = nodeCenters(splitIndex)
-//    compressList(data, splitIndex, splitCutoff, Nil, Nil)
+    //    compressList(data, splitIndex, splitCutoff, Nil, Nil)
 
-    data.foldLeft((List[(List[Double], Int)](), List[(List[Double], Int)]())){
-      case ((res1, res2), (row, index)) => if(row(splitIndex) < splitCutoff){
-        (res1, res2 :+ (row, index))
+    data.foldLeft((List[(List[Double], Int)](), List[(List[Double], Int)]())) {
+      case ((res1, res2), (row, index)) => if (row(splitIndex) < splitCutoff) {
+        (res1, res2 :+(row, index))
       } else {
-        (res1 :+ (row, index), res2)
+        (res1 :+(row, index), res2)
       }
     }
 
@@ -150,14 +150,19 @@ case class BBDKDTree(
 
     val candidates = (0 to centroidSize - 1).toList
     val sumInsideSize = sums(0).size
-    val newSums = (1 to centroidSize).toList.map{
+    val newSums = (1 to centroidSize).toList.map {
       case idx => (1 to sumInsideSize).toList.map(_ => 0.0)
     }
 
-//    val system = ActorSystem()
-    val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
-    val result = Await.result(clusterRecursively(root, centroids, candidates, centroidSize, newSums, counts, labels, actorRouterRef), 15 * 60 seconds)
-    result
+    //    val system = ActorSystem()
+    //    val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
+    implicit val timeout = Timeout(60 * 60 seconds)
+    val kdRouter = system.actorOf(Props[KDFilterActor])
+    val result = (kdRouter ? FilterCluster(root, centroids, candidates, centroidSize, newSums, counts, labels)).map{
+      case (totalCost: Double, totalSums: List[List[Double]], totalCounts: List[Int], finalLabels: List[Int]) =>
+        (totalCost, totalSums, totalCounts, finalLabels)
+    }
+    Await.result(result, 2 * 60 * 60 seconds)
   }
 
   private def findClosestCentroidCandidate(node: BBDKDNode, candidates: List[Int],
@@ -180,10 +185,10 @@ case class BBDKDTree(
                          candidates: List[Int], centroidSize: Int, closestCentroidCandidate: Int, pruneActorRef: ActorRef) = {
 
     implicit val timeout = Timeout(20 seconds)
-    val pruneCandidates: List[Future[(Int, Int)]] = candidates.take(centroidSize).map{
+    val pruneCandidates: List[Future[(Int, Int)]] = candidates.take(centroidSize).map {
       case candidate =>
         val pruneResult: Future[Any] = pruneActorRef ? PruneDetail(node.center, node.radius, centroids, closestCentroidCandidate, candidate)
-        pruneResult.map{
+        pruneResult.map {
           case isPruned: Boolean =>
             if (!isPruned) {
               (candidate, 1)
@@ -193,27 +198,14 @@ case class BBDKDTree(
         }
     }
     val prunedFutureList = Future.sequence(pruneCandidates)
-    prunedFutureList.map{
+    prunedFutureList.map {
       prunedCandidates =>
         val (newCandidates, notPrunedIndexCount) = prunedCandidates.unzip
         (newCandidates, notPrunedIndexCount.sum)
     }
   }
 
-  /**
-    * This determines which clusters all data that are rooted node will be
-    * assigned to, and updates sums, counts and membership (if not null)
-    * accordingly. Candidates maintains the set of cluster indices which
-    * could possibly be the closest clusters for data in this subtree.
-    *
-    * @param node The node which
-    * @param centroids
-    * @param candidates
-    * @param centroidSize
-    * @param sums
-    * @param labels
-    * @return
-    */
+
   private def clusterRecursively(node: BBDKDNode, centroids: List[List[Double]],
                                  candidates: List[Int], centroidSize: Int, sums: List[List[Double]],
                                  counts: List[Int], labels: List[Int], pruneActorRef: ActorRef): Future[(Double, List[List[Double]], List[Int], List[Int])] = {
@@ -222,10 +214,10 @@ case class BBDKDTree(
     val res = (node.lower, node.upper) match {
       case (Some(lower), Some(upper)) =>
 
-      pruneAsync(node, centroids, candidates, centroidSize, closestCentroidCandidate, pruneActorRef).flatMap{
+        pruneAsync(node, centroids, candidates, centroidSize, closestCentroidCandidate, pruneActorRef).flatMap {
           case (newCandidates, notPrunedIndexCount) =>
             if (notPrunedIndexCount > 1) {
-             for {
+              for {
                 (cost1, sums1, counts1, labels1) <- clusterRecursively(lower, centroids, newCandidates, notPrunedIndexCount, sums, counts, labels, pruneActorRef)
                 (cost2, sums2, counts2, labels2) <- clusterRecursively(upper, centroids, newCandidates, notPrunedIndexCount, sums1, counts1, labels1, pruneActorRef)
               } yield Some((cost1 + cost2, sums2, counts2, labels2))
@@ -242,8 +234,8 @@ case class BBDKDTree(
         }
         val newSums: List[List[Double]] = sums.patch(closestCentroidCandidate, Seq(newClosestSums), 1)
         val newCounts: List[Int] = counts.patch(closestCentroidCandidate, Seq(counts(closestCentroidCandidate) + node.count), 1)
-        val newLabels: List[Int] = labels.zipWithIndex.map{
-          case (yValue, index) => if(index <= node.index && (node.index + node.count) > index) {
+        val newLabels: List[Int] = labels.zipWithIndex.map {
+          case (yValue, index) => if (index <= node.index && (node.index + node.count) > index) {
             closestCentroidCandidate
           } else yValue
         }
@@ -316,11 +308,11 @@ case class BBDKDNode(
                       sum: List[Double],
                       lower: Option[BBDKDNode] = None,
                       upper: Option[BBDKDNode] = None
-                 )
+                    )
 
 object BBDKDNode {
   def apply(index: Int) = {
-    new BBDKDNode(0,  index, 0.0, Nil, Nil, Nil)
+    new BBDKDNode(0, index, 0.0, Nil, Nil, Nil)
   }
 
 }

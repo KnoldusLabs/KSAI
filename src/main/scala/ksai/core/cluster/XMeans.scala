@@ -90,6 +90,8 @@ object XMeans {
                 }
                 val newBIC = bic(2, subsetList.size, columnCount, kmeans.distortion, kmeans.size)
                 val oldBIC = bic(subsetList.size, columnCount, wcss)
+                println(s"New BIC $newBIC        Old BIC $oldBIC       ${newBIC - oldBIC}")
+                println(s"size ${subsetList.size}  columnCount ${columnCount} ... distortion ${kmeans.distortion} .... kmeans size ${kmeans.size}")
                 (Some(kmeans), Some(newBIC - oldBIC))
             }
             println(s"....kcount $kValue")
@@ -106,6 +108,7 @@ object XMeans {
         }.flatten.sortWith {
           case ((_, sc1), (_, sc2)) => sc1 < sc2
         }.unzip
+        println(s"..............${scores}")
         val centers = scores.zipWithIndex.filter { case (score, index) => score <= 0.0 }.map {
           case (score, index) => defaultKMeans.centroids(index)
         }
@@ -122,7 +125,7 @@ object XMeans {
             centers
           }
         }
-
+        println(s".....${centers.size}.......$centers")
         if (newCenters.size == defaultKMeans.k) {
           defaultKMeans
         } else {
@@ -155,10 +158,6 @@ object XMeans {
               }
           }
 
-          /*val wcss = (data.zip(finalLabels)).foldLeft(0.0) {
-            case (result, (dataRow, labelValue)) => result + NumericFunctions.squaredDistance(dataRow, finalCentroids(labelValue))
-          }
-          (wcss, finalDistortion, finalCentroids, finalSums, finalSize, finalLabels)*/
           new KMeans(newK, finalLabels, finalSize, finalDistortion, finalCentroids)
         }
     }

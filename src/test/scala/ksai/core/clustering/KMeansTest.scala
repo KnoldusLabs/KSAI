@@ -36,7 +36,6 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   val label = label1 ::: label2 ::: label3 ::: label4
 
   "K-Means" should "be able to apply separate files validation with LMS USPS" in {
-    pending
     val zipTraingPath = getClass.getResource("/zip.train").getPath
     val zipTestPath = getClass.getResource("/zip.test").getPath
     val delimited: Delimited[String] = DelimitedParser.parse(zipTraingPath)
@@ -53,6 +52,7 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   }
 
   "K-Means" should "be able to applicable to lloyd" in {
+    pending
     println("Lloyd 4");
     KMeans(data, 4, 100).map {
       case kmeans =>
@@ -64,6 +64,7 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   }
 
   "K-Means" should "be able to applicable to lloyd with 64" in {
+    pending
     println("Lloyd 4");
     KMeans(data, 64, 100).map {
       case kmeans =>
