@@ -8,7 +8,11 @@ import akka.util.Timeout
 import scala.concurrent.Future
 import ksai.multithreading.KAsyncExec._
 import akka.util.Timeout
+
 import scala.concurrent.duration._
+import ksai.logging.ScalaLogging._
+
+import scala.collection.mutable.ListBuffer
 
 
 case class XMeans(
@@ -23,7 +27,7 @@ case class XMeans(
   def predict(x: List[Double]): Int = kMeans.predict(x)
 }
 
-object XMeans {
+object XMeans  extends {
 
   implicit val timeout = Timeout(2*60*60 seconds)
 
@@ -53,62 +57,67 @@ object XMeans {
     println(s"X-Means distortion with $k clusters: $distortion")
 
     val bbd = BBDKDTree(data)
-    val defaultKMeans = KMeans(k, y, size, distortion, centroids)
-    recursiveBIC(data, defaultKMeans, bbd, kmax).map(kmeans => new XMeans(kmeans))
+    val defaultKMeans = new KMeans(k, y, size, distortion, centroids)
+    recursiveBIC(data.map(_.to[ListBuffer]).to[ListBuffer], defaultKMeans, bbd, kmax).map{case (kmeans, _) => new XMeans(kmeans)}
   }
 
-  private def recursiveBIC(data: List[List[Double]], defaultKMeans: KMeans, bbd: BBDKDTree, kmax: Int): Future[KMeans] = {
+  private def recursiveBIC(data: ListBuffer[ListBuffer[Double]], defaultKMeans: KMeans, bbd: BBDKDTree, kmax: Int): Future[(KMeans, Boolean)] = {
     getKMeans(data, defaultKMeans, bbd, kmax).flatMap{
-      kmeans => if(defaultKMeans.k >= kmax){
-        Future.successful(defaultKMeans)
+      case (kmeans, isBreak) =>
+        logger.info(s"Get means is done now....$isBreak")
+        if(isBreak){
+        Future.successful((kmeans, true))
       } else {
+          logger.info("*****************************Recursing again*****************************")
           recursiveBIC(data, kmeans, bbd, kmax)
       }
     }
   }
 
 
-  private def getKMeans(data: List[List[Double]], defaultKMeans: KMeans, bbd: BBDKDTree, kmax: Int): Future[KMeans] = {
+  private def getKMeans(data: ListBuffer[ListBuffer[Double]], defaultKMeans: KMeans, bbd: BBDKDTree, kmax: Int): Future[(KMeans, Boolean)] = {
     val columnCount = data(0).size
     val labelMap = defaultKMeans.y.zipWithIndex.groupBy { case (value, index) => value }
-    println(s"Labels ${defaultKMeans.k}>>>>>>>>>>> ${defaultKMeans.y.distinct}")
+    logger.info(s"K = ${defaultKMeans.k} and Labels = ${defaultKMeans.y.distinct}")
     val kmeansGenerator = KMeansFactory.getKMeansGeneratorActor()
     implicit val system = KMeansFactory.system
     val kmeansScores: List[Future[(Option[KMeans], Option[Double])]] = ((0 to defaultKMeans.k - 1).toList.zip(defaultKMeans.centroids)).map {
       case (kValue, centroid) =>
         labelMap.get(kValue) match {
-          case Some(subsetList) =>
-            val subset: List[List[Double]] = subsetList.map { case (value, index) => data(index) }
+          case Some(subsetList)  if subsetList.size > 25 =>
+            logger.info(s"defaultKmeans is ${defaultKMeans.k}")
+            val subset: List[List[Double]] = subsetList.map { case (value, index) => data(index).toList }
             val bbdTree = if(defaultKMeans.k == 1){
               Some(bbd)
             } else None
+            logger.info(s"Subset size is ====== ${subset.size}")
             val actorResult = (kmeansGenerator ? GenerateKMeansWithRuns(subset, 2, 100, 4, bbdTree)).map {
               case kmeans: KMeans =>
-                println(s"after actor hit ${kmeans.k}>>>>>>>>>>> ${kmeans.y.distinct}")
                 val wcss = subset.foldLeft(0.0) {
                   case (result, subRow) => result + NumericFunctions.squaredDistance(subRow, centroid)
                 }
                 val newBIC = bic(2, subsetList.size, columnCount, kmeans.distortion, kmeans.size)
                 val oldBIC = bic(subsetList.size, columnCount, wcss)
-                println(s"New BIC $newBIC        Old BIC $oldBIC       ${newBIC - oldBIC}")
-                println(s"size ${subsetList.size}  columnCount ${columnCount} ... distortion ${kmeans.distortion} .... kmeans size ${kmeans.size}")
+                logger.info(s"New BIC is $newBIC ** Old BIC is $oldBIC  **  difference is ${newBIC - oldBIC}")
+                logger.info(s"Sublist size ${subsetList.size}  ** columnCount ${columnCount} ** distortion ${kmeans.distortion} ** kmeans size ${kmeans.size}")
                 (Some(kmeans), Some(newBIC - oldBIC))
             }
-            println(s"....kcount $kValue")
             actorResult
-          case None => Future.successful((None, None))
+          case _ => Future.successful((None, None))
         }
     }
 
     Future.sequence(kmeansScores).map {
       case kmeansScores =>
+//        logger.info(s"kmeans scores $kmeansScores")
         val (kmeansList, scores) = kmeansScores.map {
           case (Some(km), Some(sc)) => Some((km, sc))
           case _ => None
         }.flatten.sortWith {
           case ((_, sc1), (_, sc2)) => sc1 < sc2
         }.unzip
-        println(s"..............${scores}")
+        logger.info(s"kmeans scores $scores")
+
         val centers = scores.zipWithIndex.filter { case (score, index) => score <= 0.0 }.map {
           case (score, index) => defaultKMeans.centroids(index)
         }
@@ -116,18 +125,17 @@ object XMeans {
           case (kCount, result) => if (scores(kCount) > 0) {
             if (result.size + kCount - centers.size + 1 < kmax) {
               val countMeans = kmeansList(kCount)
-              println(s"...centroids of countmeans ${countMeans.centroids}")
               (centers :+ countMeans.centroids(0)) :+ countMeans.centroids(1)
             } else {
               centers :+ defaultKMeans.centroids(kCount)
             }
           } else {
-            centers
+            centers ::: defaultKMeans.centroids
           }
         }
-        println(s".....${centers.size}.......$centers")
+//        logger.info(s"new centers $newCenters")
         if (newCenters.size == defaultKMeans.k) {
-          defaultKMeans
+          (defaultKMeans, true)
         } else {
           val newK = newCenters.size
           val sums = (0 to newK - 1).toList.map(_ => (0 to newCenters.head.size - 1).toList.map(_ => 0.0))
@@ -142,10 +150,11 @@ object XMeans {
               if (isStopped) {
                 (distort, upCents, sms, sz, lbls, isStopped)
               } else {
+                logger.info(s"Before the clustering size of the centroids is ${upCents(0).size}  ${bbd.root.center.size}")
                 val (newDistortion, clusteredSums, clusteredSize, clusteredLabels) = bbd.clustering(upCents, sms, sz, lbls)
                 val clusteredCentroids = updatedCentroids.take(newK).zipWithIndex.map {
                   case (cent, index) => if (clusteredSize(index) > 0) {
-                    (clusteredSums(index).zip(clusteredSize)).map { case (sum, sz) => sum / sz }
+                    clusteredSums(index).map { case sum => sum / clusteredSize(index) }
                   } else {
                     cent
                   }
@@ -158,7 +167,7 @@ object XMeans {
               }
           }
 
-          new KMeans(newK, finalLabels, finalSize, finalDistortion, finalCentroids)
+          (new KMeans(newK, finalLabels, finalSize, finalDistortion, finalCentroids), false)
         }
     }
   }

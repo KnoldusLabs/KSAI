@@ -19,5 +19,7 @@ object Dependencies {
 
   val akkaTest = "com.typesafe.akka" %% "akka-testkit" % "2.5.9" % Test
 
+  val scalalog = "ch.qos.logback" % "logback-classic" % "1.2.3" % Test
+
 
 }

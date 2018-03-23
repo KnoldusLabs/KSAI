@@ -12,17 +12,15 @@ class KMeansActor extends Actor {
         val d = centroids(0).length
         val best = centroids(bestIndex)
         val test = centroids(testIndex)
-        val lhs = 0.0
-        val rhs = 0.0
 
-        val (rLHS, rRHS) = (best.take(d) zip test.take(d) zip center.take(d) zip radius.take(d)).foldLeft((lhs, rhs)) {
-          case ((resLHS, resRHS), (((bst, tst), cntr), rad)) =>
-            val diff = tst - bst
+        val (rLHS, rRHS) = (0 to d-1).foldLeft((0.0, 0.0)){
+          case ((resLHS, resRHS), index) =>
+            val diff = test(index) - best(index)
             val newLHS = resLHS + (diff * diff)
             val newRHS = if (diff > 0) {
-              resRHS + ((cntr + rad - bst) * diff)
+              resRHS + ((center(index) + radius(index) - best(index)) * diff)
             } else {
-              resRHS + ((cntr - rad - bst) * diff)
+              resRHS + ((center(index) - radius(index) - best(index)) * diff)
             }
             (newLHS, newRHS)
         }

@@ -2,6 +2,8 @@ package ksai.util
 
 import DoubleUtil._
 
+import scala.collection.mutable.ListBuffer
+
 object NumericFunctions {
 
 
@@ -33,14 +35,44 @@ object NumericFunctions {
       throw new IllegalArgumentException("Input vector sizes are different.");
     }
 
-    (x zip y).foldLeft(0.0) {
-      case (result, (xVallue, yValue)) =>
-        val diff = xVallue - yValue
+    (0 to x.size -1).foldLeft(0.0) {
+      case (result, index) =>
+        val diff = x(index) - y(index)
+        result + (diff * diff)
+    }
+  }
+
+  def squaredDistance(x: ListBuffer[Double], y: ListBuffer[Double]): Double = {
+    if (x.length != y.length) {
+      throw new IllegalArgumentException("Input vector sizes are different.");
+    }
+
+    (0 to x.size -1).foldLeft(0.0) {
+      case (result, index) =>
+        val diff = x(index) - y(index)
         result + (diff * diff)
     }
   }
 
   def squaredDistanceWithMissingValues(x: List[Double], y: List[Double]): Double = {
+    val (dist, nonMissing) = (x zip y).foldLeft((0.0, 0)) {
+      case ((result, nonMissingValue), (xValue, yValue)) =>
+        if (!xValue.nan && !yValue.nan) {
+          val distance: Double = xValue - yValue
+          (result + (distance * distance), nonMissingValue + 1)
+        } else {
+          (result, nonMissingValue)
+        }
+    }
+
+    if (dist == 0.0) {
+      Double.MaxValue
+    } else {
+      x.length * dist / nonMissing
+    }
+  }
+
+  def squaredDistanceWithMissingValues(x: ListBuffer[Double], y: ListBuffer[Double]): Double = {
     val (dist, nonMissing) = (x zip y).foldLeft((0.0, 0)) {
       case ((result, nonMissingValue), (xValue, yValue)) =>
         if (!xValue.nan && !yValue.nan) {
@@ -75,6 +107,13 @@ object NumericFunctions {
     (kullbackLeiblerDivergence(x, m) + kullbackLeiblerDivergence(y, m)) / 2
   }
 
+  def jensenShannonDivergence(x: ListBuffer[Double], y: ListBuffer[Double]): Double = {
+    val m = (x zip y).map {
+      case (xValue, yValue) => (xValue + yValue) / 2
+    }
+    (kullbackLeiblerDivergence(x, m) + kullbackLeiblerDivergence(y, m)) / 2
+  }
+
   /**
     * Kullback-Leibler divergence. The Kullback-Leibler divergence (also
     * information divergence, information gain, relative entropy, or KLIC)
@@ -91,6 +130,22 @@ object NumericFunctions {
     * the same as the KL from Q to P.
     */
   def kullbackLeiblerDivergence(x: List[Double], y: List[Double]): Double = {
+    val (resKL, intersect) = (x zip y).foldLeft((0.0, false)) {
+      case ((kl, intersection), (xValue, yValue)) =>
+        if (xValue != 0.0 && yValue != 0.0) {
+          (kl + (xValue * Math.log(xValue / yValue)), true)
+
+        } else (kl, intersection)
+    }
+
+    if (intersect) {
+      resKL
+    } else {
+      Double.PositiveInfinity
+    }
+  }
+
+  def kullbackLeiblerDivergence(x: ListBuffer[Double], y: ListBuffer[Double]): Double = {
     val (resKL, intersect) = (x zip y).foldLeft((0.0, false)) {
       case ((kl, intersection), (xValue, yValue)) =>
         if (xValue != 0.0 && yValue != 0.0) {

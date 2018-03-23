@@ -22,5 +22,6 @@ libraryDependencies ++= Seq(
   breezeNative,
   breezeViz,
   akka,
-  akkaTest
+  akkaTest,
+  scalalog
 )

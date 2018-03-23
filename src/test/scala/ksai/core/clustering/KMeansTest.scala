@@ -46,6 +46,7 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
       case kmeans =>
         val r1 = RandIndex.measure(delimited.getNumericTargets, kmeans.y)
         println(".............done")
+        system.terminate()
         assert(r1 > 0.85)
     }
 
