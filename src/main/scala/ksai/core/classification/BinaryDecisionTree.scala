@@ -25,7 +25,28 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
     LeafNode(attribute._1, attribute._2, -1).include(remainingAttributes, falseInstances, trueInstances)
   }
 
-  def predict(instance: List[Double]) = rootNode.predict(instance)
+  private val header =
+    """digraph DecisionTree {
+      |node [shape=box, style="filled, rounded", color="black", fontname=helvetica];
+      |edge [fontname=helvetica];""".stripMargin
+
+  def dot: String = header + createGraph(("", 0), -1, "", rootNode)._1 +"}"
+
+  private def createGraph(stringWithIndex: (String, Int),parentIndex: Int, label: String, node: Node): (String, Int) = node match {
+    case filledNode: FilledNode =>
+      val index = stringWithIndex._2
+      val link = if(index != 0) s"""$parentIndex -> $index [labeldistance=2.5, labelangle=45, headlabel="$label"];\n""" else ""
+
+      val node = s"""$index [label=<${filledNode.attribute.name}>, fillcolor="#00000000"];\n"""
+      createGraph(createGraph((stringWithIndex._1 + node + link, index + 1), index, "false", filledNode.falseChild), index, "true", filledNode.trueChild)
+    case _: LeafNode =>
+      val index = stringWithIndex._2
+      val link = if(index != 0) s"""$parentIndex -> $index [labeldistance=2.5, labelangle=45, headlabel="$label"];\n""" else ""
+      val node = s"""$index [label=<output = $label>, fillcolor="#00000000", shape=ellipse];\n"""
+      (stringWithIndex._1 + node + link, index + 1)
+  }
+
+  def predict(instance: List[Double]): Int = rootNode.predict(instance)
 }
 
 
@@ -45,44 +66,55 @@ case class LeafNode(attribute: Attribute, attribIndex: Int, output: Int) extends
   def include(remainingAttributes: List[(Attribute, Int)], falseInstancesWithResponse: List[(List[Double], Int)],
               trueInstancesWithResponse: List[(List[Double], Int)]): Node = {
     val emptyLeafNode = LeafNode(attribute, attribIndex, output)
-
     val isFalsePure = isPure(falseInstancesWithResponse.map(_._2))
     val isTruePure = isPure(trueInstancesWithResponse.map(_._2))
+
     (trueInstancesWithResponse, falseInstancesWithResponse) match {
-      case _ if remainingAttributes.isEmpty => this
       case (Nil, Nil) => this
-      case (Nil, (_, falseResponse) :: _) =>
-        val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
+      case (Nil, (_, falseResponse) :: _) if remainingAttributes.isEmpty && isFalsePure=>
+        val falseLeafNode = LeafNode(attribute, attribIndex, falseResponse)
+        FilledNode(attribute, attribIndex, falseLeafNode, emptyLeafNode)
+      case (Nil, (_, falseResponse) :: _) if remainingAttributes.nonEmpty=>
         val falseLeafNode = if(isFalsePure){
           LeafNode(attribute, attribIndex, falseResponse)
         } else {
+          val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
           LeafNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4)
         }
 
         FilledNode(attribute, attribIndex, falseLeafNode, emptyLeafNode)
-      case ((_, trueResponse) :: _, Nil) =>
-        val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
+      case ((_, trueResponse) :: _, Nil) if remainingAttributes.isEmpty && isTruePure=>
+        val trueLeafNode = LeafNode(attribute, attribIndex, trueResponse)
+        FilledNode(attribute, attribIndex, emptyLeafNode, trueLeafNode)
+      case ((_, trueResponse) :: _, Nil) if remainingAttributes.nonEmpty=>
         val trueLeafNode = if(isTruePure){
             LeafNode(attribute, attribIndex, trueResponse)
         } else {
+          val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
           LeafNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4)
         }
 
         FilledNode(attribute, attribIndex, emptyLeafNode, trueLeafNode)
 
-      case ((_, trueResponse) :: _, (_, falseResponse) :: _) => //TODO:add support for multiple children
-        val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
-        val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
+      case ((_, trueResponse) :: _, (_, falseResponse) :: _) if remainingAttributes.isEmpty && isFalsePure && isTruePure=>
+        val trueLeafNode = LeafNode(attribute, attribIndex, trueResponse)
+        val falseLeafNode = LeafNode(attribute, attribIndex, falseResponse)
+        FilledNode(attribute, attribIndex, falseLeafNode, trueLeafNode)
+      case ((_, trueResponse) :: _, (_, falseResponse) :: _) if remainingAttributes.nonEmpty=> //TODO:add support for multiple children
         val trueLeafNode = LeafNode(attribute, attribIndex, trueResponse)
         val falseLeafNode = LeafNode(attribute, attribIndex, falseResponse)
 
         val (fChild, tChild) = if (isFalsePure && isTruePure) {
           (falseLeafNode, trueLeafNode)
         } else if (isFalsePure) {
+          val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
           (falseLeafNode, LeafNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4))
         } else if (isTruePure) {
+          val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
           (LeafNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4), trueLeafNode)
         } else {
+          val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
+          val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
           (
             LeafNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4),
             LeafNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4)
@@ -90,6 +122,7 @@ case class LeafNode(attribute: Attribute, attribIndex: Int, output: Int) extends
         }
 
         FilledNode(attribute, attribIndex, fChild, tChild)
+      case _ if remainingAttributes.isEmpty => throw new IllegalArgumentException("Inconsistent data")
     }
   }
 
@@ -118,16 +151,12 @@ object Node{
   def getAttributeWithMaxGain(attributesWithIndex: List[(Attribute, Int)], instancesWithResponse: List[(List[Double], Int)])
   : ((Attribute, Int), List[(Attribute, Int)], List[(List[Double], Int)], List[(List[Double], Int)]) = {
 
-    val ((attribute, index), _) = attributesWithIndex.tail.foldLeft((attributesWithIndex.head, 0.0)) {
+    val negativeInstancesWithResponse: List[(List[Double], Int)] = instancesWithResponse.filter{ case(_, response) => response == 0}
+    val positiveInstancesWithResponse: List[(List[Double], Int)] = instancesWithResponse.filter{ case(_, response) => response == 1}
+    val entropy = getEntropy(negativeInstancesWithResponse.size, positiveInstancesWithResponse.size, instancesWithResponse.size)
+
+    val ((attribute, index), _) = attributesWithIndex.foldLeft(((NominalAttribute(""), -1), -1.0)) {
       case (((old, oldIndex), oldGain), (current: NominalAttribute, currIndex)) =>
-        val negativeInstancesWithResponse: List[(List[Double], Int)] = instancesWithResponse.filter{
-          case(_, response) => response == 0
-        }
-
-        val positiveInstancesWithResponse: List[(List[Double], Int)] = instancesWithResponse.filter{
-          case(_, response) => response == 1
-        }
-
         //TODO:add support for multiple children
         val trueInstances = instancesWithResponse.filter{
           case(instance, _) => instance(currIndex) == 1
@@ -140,10 +169,17 @@ object Node{
         if (trueInstances.isEmpty || falseInstances.isEmpty) {
           ((old, oldIndex), oldGain)
         } else {
-          val addOn = (trueInstances.size / instancesWithResponse.size) * entropy(trueInstances.count(_._2 == 0), trueInstances.count(_._2 != 0), trueInstances.size) +
-            (falseInstances.size / instancesWithResponse.size) * entropy(falseInstances.count(_._2 == 0), falseInstances.count(_._2 != 0), falseInstances.size)
-          val gain = entropy(negativeInstancesWithResponse.size, positiveInstancesWithResponse.size, instancesWithResponse.size) - addOn
-          if (gain > oldGain) ((current, currIndex), gain) else ((old, oldIndex), oldGain)
+          val tfc = trueInstances.count(_._2 == 0)
+          val ttc = trueInstances.count(_._2 != 0)
+          val ffc = falseInstances.count(_._2 == 0)
+          val ftc = falseInstances.count(_._2 != 0)
+          val trueEntropy = getEntropy(tfc, ttc, trueInstances.size)
+          val falseEntropy = getEntropy(ffc, ftc, falseInstances.size)
+          val trueRatio = trueInstances.size.toDouble / instancesWithResponse.size
+          val falseRatio = falseInstances.size.toDouble / instancesWithResponse.size
+          val addOn = (trueRatio * trueEntropy) + (falseRatio * falseEntropy)
+          val gain = entropy - addOn
+          if (gain >= oldGain || oldIndex == -1) ((current, currIndex), gain) else ((old, oldIndex), oldGain)
         }
     }
 
@@ -153,8 +189,15 @@ object Node{
     ((attribute, index), remainingAttributes, falseInstances, trueInstances)
   }
 
-  def entropy(trueCount: Int, falseCount: Int, count: Int): Double = - ((trueCount/count) * (Math.log(trueCount/count)/Math.log(2)) +
-    (falseCount/count) * (Math.log(falseCount/count)/Math.log(2)))
+  def getEntropy(falseCount: Double, trueCount: Double, count: Double): Double = {
+    if(trueCount + falseCount == count){
+      if(falseCount == 0 || trueCount == 0)
+        0.0
+      else
+        -((trueCount / count) * (Math.log(trueCount / count) / Math.log(2)) + (falseCount / count) * (Math.log(falseCount / count) / Math.log(2)))
+    }
+    else throw new IllegalArgumentException("invalid data")
+  }
 
   def isPure(list: List[Int]): Boolean = list.distinct.lengthCompare(1) == 0
 

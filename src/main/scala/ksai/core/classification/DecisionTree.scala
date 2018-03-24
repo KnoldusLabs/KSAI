@@ -1,3 +1,4 @@
+/*
 package ksai.core.classification
 
 case class DecisionTree(attributeList: List[NumericAttribute] = Nil, trainingInstances: List[List[Double]], responses: List[Int], maxNodes: Int, nodeSize: Int, mtry: Int, rule: SplitRule, samples: List[Int] = Nil, orderList: List[List[Int]] = Nil){
@@ -23,7 +24,7 @@ case class DecisionTree(attributeList: List[NumericAttribute] = Nil, trainingIns
   require(labelCount >= 2, "Only one class.")
 
   def labelCount: Int = labels match {
-    case first :: _ => labels.reverse.match{
+    case first :: _ => labels.reverse match{
       case last :: _ => last - first
       case _ => 0
     }
@@ -59,4 +60,4 @@ case class NumericAttribute(name: String, description: Option[String], weight: D
 abstract class SplitRule
 object GINI extends SplitRule
 object ENTROPY extends SplitRule
-object CLASSIFICATION_ERROR extends SplitRule
+object CLASSIFICATION_ERROR extends SplitRule*/
