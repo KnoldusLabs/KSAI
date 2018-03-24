@@ -30,19 +30,24 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
       |node [shape=box, style="filled, rounded", color="black", fontname=helvetica];
       |edge [fontname=helvetica];""".stripMargin
 
-  def dot: String = header + createGraph(("", 0), -1, "", rootNode)._1 +"}"
+  def dot: String = header + createGraph(("", 0), -1, "", rootNode, "")._1 +"}"
 
-  private def createGraph(stringWithIndex: (String, Int),parentIndex: Int, label: String, node: Node): (String, Int) = node match {
-    case filledNode: FilledNode =>
+  private def createGraph(stringWithIndex: (String, Int),parentIndex: Int, label: String, node: Node, result: String): (String, Int) = (node, node.attribute) match {
+    case (filledNode: FilledNode, attribute: NominalAttribute) =>
       val index = stringWithIndex._2
       val link = if(index != 0) s"""$parentIndex -> $index [labeldistance=2.5, labelangle=45, headlabel="$label"];\n""" else ""
 
       val node = s"""$index [label=<${filledNode.attribute.name}>, fillcolor="#00000000"];\n"""
-      createGraph(createGraph((stringWithIndex._1 + node + link, index + 1), index, "false", filledNode.falseChild), index, "true", filledNode.trueChild)
-    case _: LeafNode =>
+      attribute.values match {
+        case falseLabel :: trueLabel :: Nil =>
+          val falseChild = createGraph((stringWithIndex._1 + node + link, index + 1), index, falseLabel, filledNode.falseChild, "false")
+          createGraph(falseChild, index, trueLabel, filledNode.trueChild, "true")
+        case _ => throw new IllegalArgumentException(s"Invalid attribute: $attribute")
+      }
+    case (_: LeafNode, _) =>
       val index = stringWithIndex._2
+      val node = s"""$index [label=<output = $result>, fillcolor="#00000000", shape=ellipse];\n"""
       val link = if(index != 0) s"""$parentIndex -> $index [labeldistance=2.5, labelangle=45, headlabel="$label"];\n""" else ""
-      val node = s"""$index [label=<output = $label>, fillcolor="#00000000", shape=ellipse];\n"""
       (stringWithIndex._1 + node + link, index + 1)
   }
 
@@ -53,6 +58,8 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
 trait Node{
 
   type Data = List[List[Double]]
+
+  def attribute: Attribute
 
   def include(remainingAttributes: List[(Attribute, Int)], trueInstances: List[(List[Double], Int)],
               falseInstances: List[(List[Double], Int)]): Node
