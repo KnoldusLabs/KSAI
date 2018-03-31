@@ -1,10 +1,9 @@
 package ksai.core.classification
 
 import breeze.linalg._
-import breeze.numerics._
+import breeze.stats.mean
 
 import scala.collection.mutable.ArrayBuffer
-import breeze.stats.mean
 
 /**
   * Created by pranjut on 31/3/18.
@@ -40,22 +39,77 @@ case class LDA(
                   * Eigen values of common variance matrix.
                   */
                 eigen: DenseVector[Double]
-              )
+              ) {
+
+  def predict(x: ArrayBuffer[Double], posteriori: ArrayBuffer[Double]): Int = {
+    if (x.length != p) {
+      throw new IllegalArgumentException(s"Invalid input vector size: ${x.length}, expected: $p")
+    }
+
+    if (posteriori != null && posteriori.length != k) {
+      throw new IllegalArgumentException(s"Invalid posteriori vector size: ${posteriori.length}, expected: $k")
+    }
+
+    var y = 0
+    var max = Double.NegativeInfinity
+
+    val d = new ArrayBuffer[Double]()
+//    var ux = new ArrayBuffer[Double]()
+//    double[] ux = new double[p];
+
+    (0 to k-1).foreach{ index: Int =>
+     (0 to p -1).foreach{ jIndex: Int =>
+        d += x(jIndex) - mu(index)(jIndex)
+      }
+
+//      scaling.atx(d, ux);
+      val ux = scaling.t * DenseVector(d:_*)
+
+      var f: Double = 0.0
+      (0 to p -1 ).foreach{ jIndex: Int =>
+        f += ux(jIndex) * ux(jIndex) / eigen(jIndex)
+      }
+
+      f = ct(index) - 0.5 * f
+      if (max < f) {
+        max = f
+        y = index
+      }
+
+      if (posteriori != null) {
+        posteriori(index) = f
+      }
+    }
+
+    if (posteriori != null) {
+      var sum = 0.0
+      (0 to k-1).foreach{ index: Int =>
+        posteriori(index) = Math.exp(posteriori(index) - max)
+        sum += posteriori(index)
+      }
+
+      (0 to k-1).foreach{ index =>
+        posteriori(index) /= sum
+      }
+    }
+    y
+  }
+}
 
 object LDA{
 
-  def apply(x: ArrayBuffer[ArrayBuffer[Double]], y: ArrayBuffer[Int]) = {
+  def apply(x: ArrayBuffer[ArrayBuffer[Double]], y: ArrayBuffer[Int]): LDA = {
     apply(x, y, new ArrayBuffer[Double](), 1E-4)
   }
 
-  def apply(x: ArrayBuffer[ArrayBuffer[Double]], y: ArrayBuffer[Int], priori: ArrayBuffer[Double], tol: Double) = {
+  def apply(x: ArrayBuffer[ArrayBuffer[Double]], y: ArrayBuffer[Int], priori: ArrayBuffer[Double], tol: Double): LDA = {
     if (x.length != y.length) {
-      throw new IllegalArgumentException(String.format("The sizes of X and Y don't match: %d != %d", x.length, y.length));
+      throw new IllegalArgumentException(s"The sizes of X and Y don't match: ${x.length} != ${y.length}")
     }
 
-    if (priori != null) {
+    if (!priori.isEmpty) {
       if (priori.length < 2) {
-        throw new IllegalArgumentException("Invalid number of priori probabilities: " + priori.length);
+        throw new IllegalArgumentException("Invalid number of priori probabilities: " + priori.length)
       }
 
       var sum = 0.0
@@ -89,7 +143,7 @@ object LDA{
       throw new IllegalArgumentException("Only one class.")
     }
 
-    if (priori != null && newk != priori.length) {
+    if (!priori.isEmpty && newk != priori.length) {
       throw new IllegalArgumentException("The number of classes and the number of priori probabilities don't match.")
     }
 
@@ -100,25 +154,26 @@ object LDA{
     val n = x.length
 
     if (n <= newk) {
-      throw new IllegalArgumentException(String.format("Sample size is too small: %d <= %d", n, newk))
+      throw new IllegalArgumentException(s"Sample size is too small: $n <= $newk")
     }
 
     val newp: Int = x(0).length
     // The number of instances in each class.
-    val ni = new ArrayBuffer[Int]()
+    val ni = ArrayBuffer[Int]((0 to newk - 1).map(_ => 0):_*)
     // Common mean vector.
     val denseX: DenseMatrix[Double] = DenseMatrix(x.map(_.toArray):_*)
 
-    val meanX = mean(denseX(::, *)).inner
-    // Common covariance.
-    val C = DenseMatrix.zeros[Double](newp,newp)
+    val meanX = mean(denseX(*, ::))
 
+    println(s"The means........>>??...${meanX}")
+    // Common covariance.
+    val C: DenseMatrix[Double] = DenseMatrix.zeros[Double](newp,newp)
     // Class mean vectors.
-    val mu = new ArrayBuffer[ArrayBuffer[Double]]()
+    val mu = ArrayBuffer[ArrayBuffer[Double]]((0 to newk-1).map(_ => ArrayBuffer((0 to newp-1).map(_ => 0.0):_*)):_*)
 
     (0 to n-1).foreach{ index: Int =>
       val c = y(index)
-      ni(c) = ni(c) + 1
+      ni += ni(c) + 1
       (0 to newp - 1).foreach{jIndex =>
         mu(c)(jIndex) += x(index)(jIndex)
       }
@@ -144,22 +199,23 @@ object LDA{
     (0 to n-1).foreach{index: Int =>
       (0 to newp-1).foreach{ jIndex: Int =>
         (0 to jIndex - 1).foreach{ lIndex: Int =>
-          C + DenseVector(jIndex.toDouble, lIndex.toDouble, (x(index)(jIndex) - meanX(jIndex)) * (x(index)(lIndex) - meanX(lIndex)))
+          val cVal = C(jIndex, lIndex)
+          val newVal = (x(index)(jIndex) - meanX(jIndex)) * (x(index)(lIndex) - meanX(lIndex))
+          C.update(jIndex, lIndex, cVal + newVal)
         }
       }
     }
-
     val newtol = tol * tol
     (0 to newp-1).foreach{ jIndex =>
-      (0 to jIndex -1).foreach{ lIndex =>
-        C(jIndex, lIndex) := (n -newk)
-        C(lIndex, jIndex) := (n -newk)
-//        C.div(j, l, (n - newk))
-//        C.set(l, j, C.get(j, l))
+      (0 to jIndex).foreach{ lIndex =>
+        C.update(jIndex, lIndex, C(jIndex, lIndex) / (n -newk))
+        C.update(lIndex, jIndex, C(lIndex, jIndex) / (n -newk))
       }
 
+      println(s"the matrix is $C")
+      println(s"Covariance matrix variable ${C(jIndex, jIndex)} ${newtol}")
       if (C(jIndex, jIndex) < newtol) {
-        throw new IllegalArgumentException(String.format("Covariance matrix (variable %d) is close to singular.", jIndex))
+        throw new IllegalArgumentException(s"Covariance matrix (variable $jIndex) is close to singular.")
       }
     }
 
