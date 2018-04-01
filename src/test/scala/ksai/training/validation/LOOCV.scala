@@ -2,6 +2,7 @@ package ksai.training.validation
 
 import scala.collection.mutable.ArrayBuffer
 
+//Leave-one-out cross validation
 case class LOOCV(
                 train: ArrayBuffer[ArrayBuffer[Int]],
                 test: ArrayBuffer[Int]
