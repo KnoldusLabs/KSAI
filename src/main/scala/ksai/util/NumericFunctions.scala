@@ -1,6 +1,7 @@
 package ksai.util
 
 import DoubleUtil._
+import breeze.linalg.DenseVector
 
 object NumericFunctions {
 
@@ -134,6 +135,22 @@ object NumericFunctions {
     (2 to n).toList.foldLeft(0.0) {
       case (result, cnt) => result + Math.log(cnt)
     }
+  }
+
+  def unitize1(x: DenseVector[Double]): Unit = {
+    val n = norm1(x)
+
+    (0 to x.length -1).foreach{ index =>
+      x(index) = x(index) / n
+    }
+  }
+
+  def norm1(x: DenseVector[Double]): Double = {
+    var norm = 0.0
+    for (n <- x.toArray) {
+      norm = norm + Math.abs(n)
+    }
+    norm
   }
 
 }
