@@ -41,28 +41,29 @@ case class LDA(
                 eigen: DenseVector[Double]
               ) {
 
+  def predict(x: ArrayBuffer[Double]): Int ={
+    predict(x, new ArrayBuffer[Double]())
+  }
+
   def predict(x: ArrayBuffer[Double], posteriori: ArrayBuffer[Double]): Int = {
     if (x.length != p) {
       throw new IllegalArgumentException(s"Invalid input vector size: ${x.length}, expected: $p")
     }
 
-    if (posteriori != null && posteriori.length != k) {
+    if (!posteriori.isEmpty && posteriori.length != k) {
       throw new IllegalArgumentException(s"Invalid posteriori vector size: ${posteriori.length}, expected: $k")
     }
 
     var y = 0
     var max = Double.NegativeInfinity
 
-    val d = new ArrayBuffer[Double]()
-//    var ux = new ArrayBuffer[Double]()
-//    double[] ux = new double[p];
+    val d = ArrayBuffer[Double]((0 to p - 1).map(_ => 0.0):_*)
 
     (0 to k-1).foreach{ index: Int =>
      (0 to p -1).foreach{ jIndex: Int =>
-        d += x(jIndex) - mu(index)(jIndex)
+        d(jIndex) = x(jIndex) - mu(index)(jIndex)
       }
 
-//      scaling.atx(d, ux);
       val ux = scaling.t * DenseVector(d:_*)
 
       var f: Double = 0.0
@@ -76,12 +77,12 @@ case class LDA(
         y = index
       }
 
-      if (posteriori != null) {
+      if (!posteriori.isEmpty) {
         posteriori(index) = f
       }
     }
 
-    if (posteriori != null) {
+    if (!posteriori.isEmpty) {
       var sum = 0.0
       (0 to k-1).foreach{ index: Int =>
         posteriori(index) = Math.exp(posteriori(index) - max)
@@ -125,8 +126,7 @@ object LDA{
       }
     }
 
-    // class label set.
-    var labels: ArrayBuffer[Int] = y.distinct.sortWith{case (first, second) => first < second}
+    val labels: ArrayBuffer[Int] = y.distinct.sortWith{case (first, second) => first < second}
 
     (0 to labels.length - 1).foreach{ index: Int =>
       if (labels(index) < 0) {
@@ -165,40 +165,39 @@ object LDA{
 
     val meanX = mean(denseX(*, ::))
 
-    println(s"The means........>>??...${meanX}")
     // Common covariance.
     val C: DenseMatrix[Double] = DenseMatrix.zeros[Double](newp,newp)
     // Class mean vectors.
     val mu = ArrayBuffer[ArrayBuffer[Double]]((0 to newk-1).map(_ => ArrayBuffer((0 to newp-1).map(_ => 0.0):_*)):_*)
 
-    (0 to n-1).foreach{ index: Int =>
+    (0 until n).foreach{ index: Int =>
       val c = y(index)
-      ni += ni(c) + 1
-      (0 to newp - 1).foreach{jIndex =>
-        mu(c)(jIndex) += x(index)(jIndex)
+      ni(c) = ni(c) + 1
+      (0 until newp).foreach{jIndex =>
+        mu(c)(jIndex) = mu(c)(jIndex) + x(index)(jIndex)
       }
     }
 
-    (0 to newk-1).foreach{index: Int =>
-      (0 to newp-1).foreach{ jIndex: Int =>
-        mu(index)(jIndex) /= ni(index)
+    (0 until newk).foreach{index: Int =>
+      (0 until newp).foreach{ jIndex: Int =>
+        mu(index)(jIndex) = mu(index)(jIndex) / ni(index)
       }
     }
 
     if (priori.isEmpty) {
-      (0 to newk-1).foreach{ index =>
+      (0 until newk).foreach{ index =>
         priori += ni(index) / n
       }
     }
 
     val ct = new ArrayBuffer[Double]()
-    (0 to newk-1).foreach{index: Int =>
+    (0 until newk).foreach{index: Int =>
       ct += Math.log(priori(index))
     }
 
-    (0 to n-1).foreach{index: Int =>
-      (0 to newp-1).foreach{ jIndex: Int =>
-        (0 to jIndex - 1).foreach{ lIndex: Int =>
+    (0 until n).foreach{index: Int =>
+      (0 until newp).foreach{ jIndex: Int =>
+        (0 to jIndex).foreach{ lIndex: Int =>
           val cVal = C(jIndex, lIndex)
           val newVal = (x(index)(jIndex) - meanX(jIndex)) * (x(index)(lIndex) - meanX(lIndex))
           C.update(jIndex, lIndex, cVal + newVal)
@@ -206,20 +205,17 @@ object LDA{
       }
     }
     val newtol = tol * tol
-    (0 to newp-1).foreach{ jIndex =>
+    (0 until newp).foreach{ jIndex =>
       (0 to jIndex).foreach{ lIndex =>
         C.update(jIndex, lIndex, C(jIndex, lIndex) / (n -newk))
-        C.update(lIndex, jIndex, C(lIndex, jIndex) / (n -newk))
+        C.update(lIndex, jIndex, C(jIndex, lIndex))
       }
 
-      println(s"the matrix is $C")
-      println(s"Covariance matrix variable ${C(jIndex, jIndex)} ${newtol}")
       if (C(jIndex, jIndex) < newtol) {
         throw new IllegalArgumentException(s"Covariance matrix (variable $jIndex) is close to singular.")
       }
     }
 
-//    C.setSymmetric(true);
     val evd = eigSym(C)
 
     for (s <- evd.eigenvalues) {

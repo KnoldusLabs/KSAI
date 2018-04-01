@@ -2,7 +2,7 @@ package ksai.core.classification
 
 import breeze.linalg.DenseMatrix
 import ksai.data.parser.{ARFF, ARFFParser, Delimited, DelimitedParser}
-import ksai.training.validation.ValidationImplicits
+import ksai.training.validation.{LOOCV, ValidationImplicits}
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
@@ -13,127 +13,40 @@ class LDATest extends FlatSpec with Matchers with ValidationImplicits {
   "LDA" should "load the values easily" in {
     val arffFile = getClass.getResource("/iris.arff").getPath
     val arff = ARFFParser.parse(arffFile)
-    val lda = LDA(arff.data.map(_.to[ArrayBuffer]).to[ArrayBuffer], arff.getNumericTargets.to[ArrayBuffer])
-    lda.predict(arff.data.head.to[ArrayBuffer], ArrayBuffer[Double](0.0, 0.0, 0.0))
-    assert(lda.p > lda.k)
-  }
+    val n = arff.data.length
+    val loocv = LOOCV(n)
+    var error = 0
+    val posteriori = ArrayBuffer[Double]((0 to 2).map(_ => 0.0):_*)
+    val bufferedData = arff.data.map(_.to[ArrayBuffer]).to[ArrayBuffer]
+    val bufferedNumericTargets = arff.getNumericTargets.to[ArrayBuffer]
+    (0 to n-1).foreach{ index =>
+      val trainx: ArrayBuffer[ArrayBuffer[Double]] = LOOCV.slice(bufferedData, loocv.train(index))
+      val trainy: ArrayBuffer[Int] = LOOCV.sliceY(bufferedNumericTargets, loocv.train(index))
+      val lda = LDA(trainx, trainy)
 
-  /*  it should "be able to apply k-fold validation with CrossEntropy and SoftMax" in {
-    pending
-    val arffFile = getClass.getResource("/iris.arff").getPath
-    val arff: ARFF[String] = ARFFParser.parse(arffFile)
-    val inputNodesNum = arff.data.head.size
-    val allNetworkAndError = arff.kFoldNN(70) {
-      case (trainingSet, target, validationSet, validationTarget) => {
-        val network = Network(CrossEntropy, SoftMax, inputNodesNum, 10, 3)
-        val trainedNetwork = network.learn(DenseMatrix(trainingSet: _*), target.toArray)
-        val errorList = (validationSet zip validationTarget).map {
-          case (arr, actualOutput) => trainedNetwork.predict(arr) == actualOutput
-        }
-        (errorList.filterNot(x => x).length, trainedNetwork)
-      }
+      if (arff.getNumericTargets(loocv.test(index)) != lda.predict(bufferedData(loocv.test(index)), posteriori))
+        error = error + 1
     }
 
-    val completelyPassed = allNetworkAndError.map { case (error, _) => error }.filter(nume => nume == 0).length
-    println(completelyPassed)
-    assert(completelyPassed == 20)
+//    val lda = LDA(arff.data.map(_.to[ArrayBuffer]).to[ArrayBuffer], arff.getNumericTargets.to[ArrayBuffer])
+//    lda.predict(arff.data.head.to[ArrayBuffer], ArrayBuffer[Double](0.0, 0.0, 0.0))
+//    assert(lda.p > lda.k)
+    assert(error == 100)
   }
 
-  it should "be able to apply k-fold validation with CrossEntropy and LogisticSigmoid" in {
-    pending
-    val arffFile = getClass.getResource("/iris.arff").getPath
-    val arff: ARFF[String] = ARFFParser.parse(arffFile)
-    val inputNodesNum = arff.data.head.size
-    val allNetworkAndError = arff.kFoldNN(70) {
-      case (trainingSet, target, validationSet, validationTarget) => {
-        val network = Network(CrossEntropy, LogisticSigmoid, inputNodesNum, 10, 1)
-        val trainedNetwork = network.learn(DenseMatrix(trainingSet: _*), arff.getBinaryTargets(target.toArray, 2))
-        val errorList = (validationSet zip validationTarget).map {
-          case (arr, actualOutput) => trainedNetwork.predict(arr) == actualOutput
-        }
-        (errorList.filterNot(x => x).length, trainedNetwork)
-      }
-    }
-
-    val completelyPassed = allNetworkAndError.map { case (error, _) => error }.filter(nume => nume == 0).length
-    println(completelyPassed)
-    assert(completelyPassed == 20)
-  }
-
-  it should "be able to apply separate files validation" in {
-    pending
-    val arffSegmentChallenge = getClass.getResource("/segment-challenge.arff").getPath
-    val arffSegmentTest = getClass.getResource("/segment-test.arff").getPath
-    val arff: ARFF[String] = ARFFParser.parse(arffSegmentChallenge)
-    val arffTest: ARFF[String] = ARFFParser.parse(arffSegmentTest)
-    val inputNodesNum = arff.data.head.size
-    val network = Network(CrossEntropy, SoftMax, inputNodesNum, 30, arff.getNumericTargets.max + 1)
-    val trainedNetwork = network.learn(DenseMatrix(arff.data: _*), arff.getNumericTargets.toArray)
-    val errorList = (arffTest.data zip arffTest.getNumericTargets).map {
-      case (arr, actualOutput) => trainedNetwork.predict(arr) == actualOutput
-    }
-    val (nonErrors, errors) = errorList.partition(isError => isError)
-
-    println(nonErrors.length + " " + errors.length)
-    assert(nonErrors.length == 125)
-    assert(errors.length == 685)
-  }
-
-  it should "be able to apply separate files validation with LMS" in {
-    pending
-    val arffSegmentChallenge = getClass.getResource("/segment-challenge.arff").getPath
-    val arffSegmentTest = getClass.getResource("/segment-test.arff").getPath
-    val arff: ARFF[String] = ARFFParser.parse(arffSegmentChallenge)
-    val arffTest: ARFF[String] = ARFFParser.parse(arffSegmentTest)
-    val inputNodesNum = arff.data.head.size
-    val network = Network(LeastMeanSquares, LogisticSigmoid, inputNodesNum, 30, arff.getNumericTargets.max + 1)
-    val trainedNetwork = network.learn(DenseMatrix(arff.data: _*), arff.getNumericTargets.toArray)
-    val errorList = (arffTest.data zip arffTest.getNumericTargets).map {
-      case (arr, actualOutput) => trainedNetwork.predict(arr) == actualOutput
-    }
-    val (nonErrors, errors) = errorList.partition(isError => isError)
-
-    println(nonErrors.length + " " + errors.length)
-    assert(nonErrors.length > 0)
-//    assert(errors.length == 700)
-  }
-
-  it should "be able to apply separate files validation with USPS" in {
-    pending
+  it should "workable on traing and test dataset" in {
     val zipTraingPath = getClass.getResource("/zip.train").getPath
     val zipTestPath = getClass.getResource("/zip.test").getPath
     val delimited: Delimited[String] = DelimitedParser.parse(zipTraingPath)
     val delimitedTest: Delimited[String] = DelimitedParser.parse(zipTestPath)
-    val inputNodesNum = delimited.data.head.size
-    val network = Network(CrossEntropy, SoftMax, inputNodesNum, 40, delimited.getNumericTargets.max + 1)
-    val trainedNetwork = network.learn(DenseMatrix(delimited.data: _*), delimited.getNumericTargets.toArray)
-    val errorList = (delimitedTest.data zip delimitedTest.getNumericTargets).map {
-      case (arr, actualOutput) => trainedNetwork.predict(arr) == actualOutput
+    val lda = LDA(delimited.data.map(_.to[ArrayBuffer]).to[ArrayBuffer], delimited.getNumericTargets.to[ArrayBuffer])
+    var error = 0
+    (0 to delimitedTest.data.length -1).foreach{ index =>
+      if (lda.predict(delimitedTest.data(index).to[ArrayBuffer]) != delimitedTest.getNumericTargets(index)) {
+        error = error + 1
+      }
     }
-    val (nonErrors, errors) = errorList.partition(isError => isError)
-
-    println(nonErrors.length + " " + errors.length)
-    assert(nonErrors.length == 1985)
-    assert(errors.length == 22)
+    assert(error == 22)
   }
-
-  it should "be able to apply separate files validation with LMS USPS" in {
-    val zipTraingPath = getClass.getResource("/zip.train").getPath
-    val zipTestPath = getClass.getResource("/zip.test").getPath
-    val delimited: Delimited[String] = DelimitedParser.parse(zipTraingPath)
-    val delimitedTest: Delimited[String] = DelimitedParser.parse(zipTestPath)
-    val inputNodesNum = delimited.data.head.size
-    val network = Network(LeastMeanSquares, LogisticSigmoid, inputNodesNum, 40, delimited.getNumericTargets.max + 1)
-    val trainedNetwork = network.learn(DenseMatrix(delimited.data: _*), delimited.getNumericTargets.toArray)
-    val errorList = (delimitedTest.data zip delimitedTest.getNumericTargets).map {
-      case (arr, actualOutput) => trainedNetwork.predict(arr) == actualOutput
-    }
-    val (nonErrors, errors) = errorList.partition(isError => isError)
-
-    println(nonErrors.length + " " + errors.length)
-    assert(nonErrors.length == 1985)
-    assert(errors.length == 22)
-  }
-*/
 
 }
