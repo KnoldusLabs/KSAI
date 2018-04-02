@@ -1,6 +1,6 @@
 package ksai.core.classification
 
-import ksai.core.classification.Node.{getAttributeWithMaxGain, isPure}
+import ksai.core.classification.BinaryNode.{getAttributeWithMaxGain, isPure}
 import ksai.data.parser.{Attribute, NominalAttribute}
 
 case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
@@ -22,7 +22,7 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
     getAttributeWithMaxGain(attributeList.zipWithIndex, trainingInstances.zip(responses))
 
   private val rootNode = {
-    LeafNode(attribute._1, attribute._2, -1).include(remainingAttributes, falseInstances, trueInstances)
+    LeafBinaryNode(attribute._1, attribute._2, -1).include(remainingAttributes, falseInstances, trueInstances)
   }
 
   private val header =
@@ -32,8 +32,8 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
 
   def dot: String = header + createGraph(("", 0), -1, "", rootNode, "")._1 +"}"
 
-  private def createGraph(stringWithIndex: (String, Int),parentIndex: Int, label: String, node: Node, result: String): (String, Int) = (node, node.attribute) match {
-    case (filledNode: FilledNode, attribute: NominalAttribute) =>
+  private def createGraph(stringWithIndex: (String, Int), parentIndex: Int, label: String, node: BinaryNode, result: String): (String, Int) = (node, node.attribute) match {
+    case (filledNode: FilledBinaryNode, attribute: NominalAttribute) =>
       val index = stringWithIndex._2
       val link = if(index != 0) s"""$parentIndex -> $index [labeldistance=2.5, labelangle=45, headlabel="$label"];\n""" else ""
 
@@ -44,7 +44,7 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
           createGraph(falseChild, index, trueLabel, filledNode.trueChild, "true")
         case _ => throw new IllegalArgumentException(s"Invalid attribute: $attribute")
       }
-    case (_: LeafNode, _) =>
+    case (_: LeafBinaryNode, _) =>
       val index = stringWithIndex._2
       val node = s"""$index [label=<output = $result>, fillcolor="#00000000", shape=ellipse];\n"""
       val link = if(index != 0) s"""$parentIndex -> $index [labeldistance=2.5, labelangle=45, headlabel="$label"];\n""" else ""
@@ -55,80 +55,80 @@ case class BinaryDecisionTree(attributeList: List[Attribute] = Nil,
 }
 
 
-trait Node{
+trait BinaryNode{
 
   type Data = List[List[Double]]
 
   def attribute: Attribute
 
   def include(remainingAttributes: List[(Attribute, Int)], trueInstances: List[(List[Double], Int)],
-              falseInstances: List[(List[Double], Int)]): Node
+              falseInstances: List[(List[Double], Int)]): BinaryNode
 
   def predict(instance: List[Double]): Int
 
 }
 
-case class LeafNode(attribute: Attribute, attribIndex: Int, output: Int) extends Node{
+case class LeafBinaryNode(attribute: Attribute, attribIndex: Int, output: Int) extends BinaryNode{
 
   def include(remainingAttributes: List[(Attribute, Int)], falseInstancesWithResponse: List[(List[Double], Int)],
-              trueInstancesWithResponse: List[(List[Double], Int)]): Node = {
-    val emptyLeafNode = LeafNode(attribute, attribIndex, output)
+              trueInstancesWithResponse: List[(List[Double], Int)]): BinaryNode = {
+    val emptyLeafNode = LeafBinaryNode(attribute, attribIndex, output)
     val isFalsePure = isPure(falseInstancesWithResponse.map(_._2))
     val isTruePure = isPure(trueInstancesWithResponse.map(_._2))
 
     (trueInstancesWithResponse, falseInstancesWithResponse) match {
       case (Nil, Nil) => this
       case (Nil, (_, falseResponse) :: _) if remainingAttributes.isEmpty && isFalsePure=>
-        val falseLeafNode = LeafNode(attribute, attribIndex, falseResponse)
-        FilledNode(attribute, attribIndex, falseLeafNode, emptyLeafNode)
+        val falseLeafNode = LeafBinaryNode(attribute, attribIndex, falseResponse)
+        FilledBinaryNode(attribute, attribIndex, falseLeafNode, emptyLeafNode)
       case (Nil, (_, falseResponse) :: _) if remainingAttributes.nonEmpty=>
         val falseLeafNode = if(isFalsePure){
-          LeafNode(attribute, attribIndex, falseResponse)
+          LeafBinaryNode(attribute, attribIndex, falseResponse)
         } else {
           val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
-          LeafNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4)
+          LeafBinaryNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4)
         }
 
-        FilledNode(attribute, attribIndex, falseLeafNode, emptyLeafNode)
+        FilledBinaryNode(attribute, attribIndex, falseLeafNode, emptyLeafNode)
       case ((_, trueResponse) :: _, Nil) if remainingAttributes.isEmpty && isTruePure=>
-        val trueLeafNode = LeafNode(attribute, attribIndex, trueResponse)
-        FilledNode(attribute, attribIndex, emptyLeafNode, trueLeafNode)
+        val trueLeafNode = LeafBinaryNode(attribute, attribIndex, trueResponse)
+        FilledBinaryNode(attribute, attribIndex, emptyLeafNode, trueLeafNode)
       case ((_, trueResponse) :: _, Nil) if remainingAttributes.nonEmpty=>
         val trueLeafNode = if(isTruePure){
-            LeafNode(attribute, attribIndex, trueResponse)
+            LeafBinaryNode(attribute, attribIndex, trueResponse)
         } else {
           val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
-          LeafNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4)
+          LeafBinaryNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4)
         }
 
-        FilledNode(attribute, attribIndex, emptyLeafNode, trueLeafNode)
+        FilledBinaryNode(attribute, attribIndex, emptyLeafNode, trueLeafNode)
 
       case ((_, trueResponse) :: _, (_, falseResponse) :: _) if remainingAttributes.isEmpty && isFalsePure && isTruePure=>
-        val trueLeafNode = LeafNode(attribute, attribIndex, trueResponse)
-        val falseLeafNode = LeafNode(attribute, attribIndex, falseResponse)
-        FilledNode(attribute, attribIndex, falseLeafNode, trueLeafNode)
+        val trueLeafNode = LeafBinaryNode(attribute, attribIndex, trueResponse)
+        val falseLeafNode = LeafBinaryNode(attribute, attribIndex, falseResponse)
+        FilledBinaryNode(attribute, attribIndex, falseLeafNode, trueLeafNode)
       case ((_, trueResponse) :: _, (_, falseResponse) :: _) if remainingAttributes.nonEmpty=> //TODO:add support for multiple children
-        val trueLeafNode = LeafNode(attribute, attribIndex, trueResponse)
-        val falseLeafNode = LeafNode(attribute, attribIndex, falseResponse)
+        val trueLeafNode = LeafBinaryNode(attribute, attribIndex, trueResponse)
+        val falseLeafNode = LeafBinaryNode(attribute, attribIndex, falseResponse)
 
         val (fChild, tChild) = if (isFalsePure && isTruePure) {
           (falseLeafNode, trueLeafNode)
         } else if (isFalsePure) {
           val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
-          (falseLeafNode, LeafNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4))
+          (falseLeafNode, LeafBinaryNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4))
         } else if (isTruePure) {
           val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
-          (LeafNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4), trueLeafNode)
+          (LeafBinaryNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4), trueLeafNode)
         } else {
           val trueChild = getAttributeWithMaxGain(remainingAttributes, trueInstancesWithResponse)
           val falseChild = getAttributeWithMaxGain(remainingAttributes, falseInstancesWithResponse)
           (
-            LeafNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4),
-            LeafNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4)
+            LeafBinaryNode(falseChild._1._1, falseChild._1._2, output).include(falseChild._2, falseChild._3, falseChild._4),
+            LeafBinaryNode(trueChild._1._1, trueChild._1._2, output).include(trueChild._2, trueChild._3, trueChild._4)
           )
         }
 
-        FilledNode(attribute, attribIndex, fChild, tChild)
+        FilledBinaryNode(attribute, attribIndex, fChild, tChild)
       case _ if remainingAttributes.isEmpty => throw new IllegalArgumentException("Inconsistent data")
     }
   }
@@ -138,9 +138,9 @@ case class LeafNode(attribute: Attribute, attribIndex: Int, output: Int) extends
   }
 }
 
-case class FilledNode(attribute: Attribute,  attribIndex: Int, falseChild: Node, trueChild: Node) extends Node{
+case class FilledBinaryNode(attribute: Attribute, attribIndex: Int, falseChild: BinaryNode, trueChild: BinaryNode) extends BinaryNode{
   override def include(remainingAttributes: List[(Attribute, Int)], trueInstances: List[(List[Double], Int)],
-    falseInstances: List[(List[Double], Int)]): Node = {
+    falseInstances: List[(List[Double], Int)]): BinaryNode = {
     this.copy(
       trueChild = trueChild.include(remainingAttributes, trueInstances, falseInstances),
       falseChild = falseChild.include(remainingAttributes, trueInstances, falseInstances)
@@ -153,7 +153,7 @@ case class FilledNode(attribute: Attribute,  attribIndex: Int, falseChild: Node,
   }
 }
 
-object Node{
+object BinaryNode{
 
   def getAttributeWithMaxGain(attributesWithIndex: List[(Attribute, Int)], instancesWithResponse: List[(List[Double], Int)])
   : ((Attribute, Int), List[(Attribute, Int)], List[(List[Double], Int)], List[(List[Double], Int)]) = {
