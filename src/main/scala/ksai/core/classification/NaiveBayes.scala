@@ -52,22 +52,22 @@ case class NaiveBayes(
         for {
           iterator <- 0 until independentVariablesCount
         } yield {
-          this.ntc(label)(iterator) + instance(iterator)
-          this.termsInEachClass(label) + instance(iterator)
+          ntc(label)(iterator) + instance(iterator)
+          termsInEachClass(label) + instance(iterator)
         }
-        this.instancesInEachClass(label) + 1
-        this.copy(instanceCount = instanceCount + 1)
-      //        update()
+        instancesInEachClass(label) + 1
+        copy(instanceCount = instanceCount + 1)
+        update()
       case BERNOULLI =>
         for {
           iterator <- 0 until independentVariablesCount
         } yield {
           if (instance(iterator) > 0) {
-            this.ntc(label)(iterator) + 1
+            ntc(label)(iterator) + 1
           }
         }
-        this.instancesInEachClass(label) + 1
-        this.copy(instanceCount = instanceCount + 1)
+        instancesInEachClass(label) + 1
+        copy(instanceCount = instanceCount + 1)
         update()
 
 
@@ -75,7 +75,7 @@ case class NaiveBayes(
   }
 
 
-  /*/**
+  /**
     * Online learning of naive Bayes classifier on a sequence,
     * which is modeled as a bag of words. Note that this method is NOT
     * applicable for naive Bayes classifier with general generation model.
@@ -85,12 +85,27 @@ case class NaiveBayes(
     */
   def learn(instance:SparseArray[Double], label: Int): Unit = {
     model match {
-      case GENERAL => throw new UnsupportedOperationException("General-mode Naive Bayes classifier doesn't support online learning.")
+      case GENERAL =>
+        throw new UnsupportedOperationException("General-mode Naive Bayes classifier doesn't support online learning.")
       case MULTINOMIAL =>
-
+        for(iterator <- instance.index) {
+          ntc(label)(iterator) + instance.valueAt(iterator)
+          termsInEachClass(label) + instance.valueAt(iterator)
+        }
+        instanceCount + 1
+        instancesInEachClass(label) + 1
+        update()
       case BERNOULLI =>
+        for(iterator <- instance.index) {
+          if(instance.valueAt(iterator) > 0) {
+            ntc(label)(iterator) + 1
+          }
+        }
+        instanceCount + 1
+        instancesInEachClass(label) + 1
+        update()
     }
-  }*/
+  }
 
 
   /**
@@ -196,17 +211,78 @@ case class NaiveBayes(
       throw new IllegalArgumentException(String.format(s"Invalid posteriori vector size: ${posteriori.length}, expected: $classCount"))
     }
 
-    val label = -1
-    val max = Double.NegativeInfinity
-    val `any` = model match {
+    var label = -1
+    var max = Double.NegativeInfinity
+    var `any` = model match {
       case GENERAL => true
       case _ => false
     }
 
     for (outerIterator <- 0 until classCount) {
 
+      var logprob = Math.log(priori(outerIterator))
+
+      for (innerIterator <- 0 until independentVariablesCount) {
+        model match {
+          case GENERAL => logprob += prob(outerIterator)(innerIterator).logp(instances(innerIterator))
+          case MULTINOMIAL =>
+            if(instances(innerIterator) > 0) {
+              logprob += instances(innerIterator) * Math.log(condprob(outerIterator)(innerIterator))
+              `any` = true
+            }
+          case BERNOULLI =>
+            if(instances(outerIterator) > 0){
+              logprob += Math.log(condprob(outerIterator)(innerIterator))
+              `any` = true
+            } else {
+              logprob += Math.log(1.0 - condprob(outerIterator)(innerIterator))
+            }
+        }
+      }
+
+      if(logprob > max && `any`) {
+        max = logprob
+        label = outerIterator
+      }
+
+      if (posteriori.nonEmpty) {
+        posteriori(outerIterator) = logprob
+      }
     }
+
+    if(posteriori.nonEmpty && `any`) {
+      val posterioriSum = posteriori.map( value => Math.exp(value - max)).sum
+      for(iterator <- posteriori.indices) {
+        posteriori(iterator) = posteriori(iterator) / posterioriSum
+      }
+    }
+    label
   }
+
+  /**
+    * Predict the class of an instance.
+    *
+    * @param instance the instance to be classified.
+    * @return the predicted class label. For MULTINOMIAL and BERNOULLI models,
+    *         returns -1 if the instance does not contain any feature words.
+    */
+  def predict(instance: SparseArray[Double]): Int ={
+    predict(instance, Array.emptyDoubleArray)
+  }
+
+  /**
+    * Predict the class of an instance.
+    *
+    * @param instance the instance to be classified.
+    * @param posteriori the array to store a posteriori probabilities on output.
+    * @return the predicted class label. For MULTINOMIAL and BERNOULLI models,
+    *         returns -1 if the instance does not contain any feature words.
+    */
+  def predict(instance: SparseArray[Double] , posteriori: Array[Double]):Int = {
+    ???
+  }
+
+
 
 }
 
@@ -301,7 +377,7 @@ case class NaiveBayesTrainer(
                               independentVariablesCount: Int, //The number of independent variables.
                               priori: Array[Double] = Array.emptyDoubleArray, //A priori probabilities of each class.
                               sigma: Double = 1.0
-                            ) /*extends ClassifierTrainer[Double]*/ {
+                            ) {
 
   def setPriori(newPriori: Array[Double]) = {
     this.copy(priori = newPriori)
@@ -315,11 +391,17 @@ case class NaiveBayesTrainer(
     this.copy(sigma = newSigma)
   }
 
-  /*def train(x: Array[Array[Double]], y: Array[Int]): NaiveBayes = {
-    val bayes = if (priori.isEmpty) new NaiveBayes(model = model, classCount = classCount,
-      independentVariablesCount = independentVariablesCount, sigma = sigma)
+  def train(x: Array[Array[Double]], y: Array[Int]): NaiveBayes = {
+    val bayes = if (priori.isEmpty){
+       NaiveBayes(model = model, classCount = classCount,
+        independentVariablesCount = independentVariablesCount, sigma = sigma)
+    } else {
+      NaiveBayes(model = model, priori = priori, independentVariablesCount = independentVariablesCount,
+        sigma = sigma)
+    }
+    bayes.learn(x, y)
     bayes
-  }*/
+  }
 }
 
 object NaiveBayesTrainer {

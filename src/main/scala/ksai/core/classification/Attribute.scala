@@ -29,29 +29,10 @@ case object DATE extends Type
 
 case class Attribute(
                       `type`: Type,
-                      weight:Double,
+                      weight:Double = 1.0,
                       name:String,
-                      description:String
+                      description:String = ""
                     ) extends Serializable {
-  def getType: Type = `type`
-
-  def getName: String = name
-
-  def setName(name:String): Attribute = {
-     this.copy(name = name)
-  }
-
-  def getDescription: String = description
-
-  def setDescription(description: String): Attribute = {
-    this.copy(description = description)
-  }
-
-  def getWeight: Double = weight
-
-  def setWeight(weight:Double): Attribute = {
-    this.copy(weight = weight)
-  }
 
   override def toString: String = {
     s"${`type`} [$name] "
@@ -74,27 +55,3 @@ case class Attribute(
   }
 }
 
-object Attribute {
-
-  def apply(`type`:Type, name:String) = {
-    commonApply(`type`, 1.0, name, "")
-  }
-
-  def apply(`type`: Type, name: String, weight:Double) = {
-    commonApply(`type`, weight, name, "")
-  }
-
-  def apply(`type`:Type, name:String, description:String) = {
-    commonApply(`type`, 1.0, name, description)
-  }
-
-  def apply (`type`:Type, name:String, description:String, weight:Double) = {
-    commonApply(`type`, weight, name, description)
-  }
-
-  def commonApply(`type`: Type, weight:Double,  name: String, description:String):Attribute ={
-    new Attribute(`type`, weight, name, description)
-  }
-
-
-}
