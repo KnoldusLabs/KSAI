@@ -3,8 +3,8 @@ package ksai.util
 import DoubleUtil._
 import breeze.linalg.DenseVector
 
-object NumericFunctions {
 
+object NumericFunctions {
 
   def logisticSigmoid(value: Double): Double = {
     val y = if (value < -40) {
@@ -31,7 +31,7 @@ object NumericFunctions {
 
   def squaredDistance(x: List[Double], y: List[Double]): Double = {
     if (x.length != y.length) {
-      throw new IllegalArgumentException("Input vector sizes are different.");
+      throw new IllegalArgumentException("Input vector sizes are different.")
     }
 
     (x zip y).foldLeft(0.0) {
@@ -151,6 +151,11 @@ object NumericFunctions {
       norm = norm + Math.abs(n)
     }
     norm
+  }
+
+  def round (value: Double, precision: Int) = {
+    val scale = Math.pow(10, precision).toInt
+    (Math.round(value * scale) / scale).toDouble
   }
 
 }

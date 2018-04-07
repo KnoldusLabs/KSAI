@@ -3,7 +3,9 @@ package ksai.core.projection
 import breeze.linalg._
 import breeze.stats.mean
 import breeze.linalg.svd
+import breeze.linalg.svd.DenseSVD
 import ksai.util.NumericFunctions
+import spire.std.double
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -18,34 +20,61 @@ case class PCA(
                 proportion: DenseVector[Double],
                 cumulativeProportion: ArrayBuffer[Double],
                 projection: DenseMatrix[Double]
-              )
+              ) {
+
+
+  def project(x: ArrayBuffer[Double]): DenseVector[Double] = {
+    if (x.length != n) {
+      throw new IllegalArgumentException(s"Invalid input vector size: ${x.length}, expected: $n")
+    }
+
+    val y = projection * DenseVector(x: _*)
+    y - pmu
+  }
+
+  def project(x: ArrayBuffer[ArrayBuffer[Double]]): DenseMatrix[Double] = {
+    if (x(0).length != mu.length) {
+      throw new IllegalArgumentException(s"Invalid input vector size: ${x(0).length}, expected: $n")
+    }
+
+    val y = DenseMatrix.zeros[Double](x.length, p)
+    (0 to x.length - 1).foreach { index =>
+      val yVec = projection * DenseVector(x(index): _*)
+      val yIndx = yVec - pmu
+      y(index, ::) := yIndx.t
+    }
+    y
+  }
+
+
+}
 
 object PCA {
 
-  def apply(data: ArrayBuffer[ArrayBuffer[Double]], cor: Boolean) = {
+  def apply(data: ArrayBuffer[ArrayBuffer[Double]], cor: Boolean = false) = {
     val m = data.length
     val n = data(0).length
 
     val denseX: DenseMatrix[Double] = DenseMatrix(data.map(_.toArray): _*)
     val mu: DenseVector[Double] = mean(denseX(::, *)).inner
-    //    val mu = Math.colMeans(data)
-    //    DenseMatrix x = Matrix.newInstance(data);
-    (0 to n - 1).foreach { index =>
-      (0 to m - 1).foreach { jIndex =>
-        denseX.update(index, jIndex, denseX(index, jIndex) / mu(jIndex))
+
+    (0 to n - 1).foreach { jIndex =>
+      (0 to m - 1).foreach { index =>
+        denseX.update(index, jIndex, denseX(index, jIndex) - mu(jIndex))
       }
     }
 
     val (eigVal, eigVec) = if (m > n && !cor) {
-      val svdc = svd(denseX)
-      val eigvalues = svdc.singularValues
+      val svd.SVD(leftVec, singVal, rightVec) = svd(denseX.t)
+      val eigvalues: DenseVector[Double] = singVal
       (0 to eigvalues.length - 1).foreach { index =>
         eigvalues(index) = eigvalues(index) * eigvalues(index)
       }
 
-      val eigvectors = svdc.Vt
+      val eigvectors = rightVec
       (eigvalues, eigvectors)
-    } else {
+    }
+    else {
       val cov: DenseMatrix[Double] = DenseMatrix.zeros[Double](n, n)
       (0 to m - 1).foreach { kIndex =>
         (0 to n - 1).foreach { index =>
@@ -98,16 +127,19 @@ object PCA {
 
     val cumulativeProportion = ArrayBuffer[Double]((0 to eigVal.length - 1).map(_ => 0.0): _*)
     cumulativeProportion(0) = proportion(0)
-    (0 to eigVal.length - 1).foreach { index =>
+    (1 to eigVal.length - 1).foreach { index =>
       cumulativeProportion(index) = cumulativeProportion(index - 1) + proportion(index)
     }
 
-    setProjection(0.95,k, n, eigVec, eigVal, mu, proportion, cumulativeProportion)
+    setProjection(0.95, n, eigVec, eigVal, mu, proportion, cumulativeProportion)
   }
 
+  def setProjection(p: Int, pca: PCA): PCA = {
+    setProjection(p, pca.n, pca.eigvectors, pca.eigvalues, pca.mu, pca.proportion, pca.cumulativeProportion)
+  }
 
   def setProjection(p: Int, n: Int, eigvectors: DenseMatrix[Double], eigvalues: DenseVector[Double],
-                    mu: DenseVector[Double], proportion: DenseVector[Double], cumulativeProportion: DenseVector[Double]) = {
+                    mu: DenseVector[Double], proportion: DenseVector[Double], cumulativeProportion: ArrayBuffer[Double]): PCA = {
     if (p < 1 || p > n) {
       throw new IllegalArgumentException("Invalid dimension of feature space: " + p)
     }
@@ -123,16 +155,17 @@ object PCA {
     new PCA(p, n, mu, pmu, eigvectors, eigvalues, proportion, cumulativeProportion, projection)
   }
 
-  def setProjection(p: Double, k: Int, n: Int, eigvectors: DenseMatrix[Double], eigvalues: DenseVector[Double],
-                    mu: DenseVector[Double], proportion: DenseVector[Double], cumulativeProportion: DenseVector[Double]) = {
+  def setProjection(p: Double, n: Int, eigvectors: DenseMatrix[Double], eigvalues: DenseVector[Double],
+                    mu: DenseVector[Double], proportion: DenseVector[Double], cumulativeProportion: ArrayBuffer[Double]): PCA = {
     if (p <= 0 || p > 1) {
       throw new IllegalArgumentException("Invalid percentage of variance: " + p)
     }
 
-    val pca = new PCA(p, n, mu, DenseVector[Double](), eigvectors, eigvalues, proportion, cumulativeProportion, DenseMatrix[Double]())
-    val (result, _) = (0 to k - 1).foldLeft((pca, true)) { case ((result, check), kIndex) =>
+    val pca = new PCA(1, n, mu, DenseVector[Double](), eigvectors, eigvalues, proportion,
+      cumulativeProportion, DenseMatrix.zeros[Double](1, n))
+    val (result, _) = (0 to n - 1).foldLeft((pca, true)) { case ((result, check), kIndex) =>
       if (check && cumulativeProportion(kIndex) >= p) {
-        val pc = setProjection(k + 1, n, eigvectors, eigvalues, mu, proportion, cumulativeProportion)
+        val pc = setProjection(kIndex + 1, n, eigvectors, eigvalues, mu, proportion, cumulativeProportion)
         (pc, false)
       } else {
         (result, check)
@@ -140,5 +173,6 @@ object PCA {
     }
     result
   }
+
 
 }
