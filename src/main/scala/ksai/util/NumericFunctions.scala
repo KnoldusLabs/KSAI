@@ -1,9 +1,10 @@
 package ksai.util
 
 import DoubleUtil._
+import breeze.linalg.DenseVector
+
 
 object NumericFunctions {
-
 
   def logisticSigmoid(value: Double): Double = {
     val y = if (value < -40) {
@@ -30,7 +31,7 @@ object NumericFunctions {
 
   def squaredDistance(x: List[Double], y: List[Double]): Double = {
     if (x.length != y.length) {
-      throw new IllegalArgumentException("Input vector sizes are different.");
+      throw new IllegalArgumentException("Input vector sizes are different.")
     }
 
     (x zip y).foldLeft(0.0) {
@@ -134,6 +135,27 @@ object NumericFunctions {
     (2 to n).toList.foldLeft(0.0) {
       case (result, cnt) => result + Math.log(cnt)
     }
+  }
+
+  def unitize1(x: DenseVector[Double]): Unit = {
+    val n = norm1(x)
+
+    (0 to x.length -1).foreach{ index =>
+      x(index) = x(index) / n
+    }
+  }
+
+  def norm1(x: DenseVector[Double]): Double = {
+    var norm = 0.0
+    for (n <- x.toArray) {
+      norm = norm + Math.abs(n)
+    }
+    norm
+  }
+
+  def round (value: Double, precision: Int) = {
+    val scale = Math.pow(10, precision).toInt
+    (Math.round(value * scale) / scale).toDouble
   }
 
 }
