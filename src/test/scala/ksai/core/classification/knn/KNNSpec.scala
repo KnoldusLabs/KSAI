@@ -9,7 +9,7 @@ class KNNSpec extends WordSpec with Matchers with ValidationImplicits {
 
   "KNN" should {
 
-    "build itself" in {
+    "predict with k nearest neighbors" in {
 
       val arffFile: String = getClass.getResource("/iris.arff").getPath
       val arff: ARFF[String] = ARFFParser.parse(arffFile)
@@ -17,37 +17,49 @@ class KNNSpec extends WordSpec with Matchers with ValidationImplicits {
       val data: Array[Array[Double]] = arff.data.toArray
       val results: Array[Int] = arff.getNumericTargets.toArray
 
-      println("***DATA**********" + data.toList.map(_.toList))
-      println("***DATA SIZE**********" + data.toList.size)
-      println("***RESULT**********" + results.toList)
-      println("***RESULT SIZE**********" + results.toList.size)
-
-      val knn: KNN = KNN.learn(data, results, 3)
-
-      println("****************knn.knn------------" + knn.knn)
-
+      //KNN with K = 3
+      val knn3: KNN = KNN.learn(data, results, 3)
       var error = 0
-
-      (0 until data.length).drop(50).take(100).map{ i =>
-        val result = knn.predict(data(i))
-        println("\n\n\nFOR DATA......>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + data(i).toList)
-        println("EXPECTED RESULT......>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + results(i))
-        println("REULT FOUND......>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + result)
+      (0 until data.length).map{ i =>
+        val result = knn3.predict(data(i))
         if(result != results(i)){
           error = error + 1
         }
       }
+      println("\n\nKNN with K = 3 ====== ERROR: " + error)
 
-      println("*********5 NN ERROR: " + error)
-
-      /*error = 0
-      var i = 0
-      while ( {i < x.length}) {
-        if (knn.predict(x(i)) != y(i)) error += 1 {
-          i += 1
-          i - 1
+      //KNN with K = 5
+      val knn5: KNN = KNN.learn(data, results, 5)
+      error = 0
+      (0 until data.length).map{ i =>
+        val result = knn5.predict(data(i))
+        if(result != results(i)){
+          error = error + 1
         }
-      }*/
+      }
+      println("\n\nKNN with K = 5 ====== ERROR: " + error)
+
+      //KNN with K = 7
+      val knn7: KNN = KNN.learn(data, results, 7)
+      error = 0
+      (0 until data.length).map{ i =>
+        val result = knn7.predict(data(i))
+        if(result != results(i)){
+          error = error + 1
+        }
+      }
+      println("\n\nKNN with K = 7 ====== ERROR: " + error)
+
+      //KNN with K = 10
+      val knn10: KNN = KNN.learn(data, results, 7)
+      error = 0
+      (0 until data.length).map{ i =>
+        val result = knn10.predict(data(i))
+        if(result != results(i)){
+          error = error + 1
+        }
+      }
+      println("\n\nKNN with K = 10 ====== ERROR: " + error)
 
       assert(error < 10)
     }

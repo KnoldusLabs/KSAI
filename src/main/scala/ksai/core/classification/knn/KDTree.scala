@@ -26,29 +26,24 @@ case class KDTree(
                  ) {
   def knn(q: Array[Double], k: Int): List[Neighbor] = {
 
-    if (k <= 0) throw new IllegalArgumentException("Invalid k: " + k)
-
-    if (k > keys.length) throw new IllegalArgumentException("Neighbor array length is larger than the dataset size")
-
-    val neigbour: Neighbor = Neighbor(Array.fill(0)(0.0), Array.fill[Double](k)(0), 0, Double.MaxValue)
-
-    val heapSelect: HeapSelect = HeapSelect(k = k, n = k, heap = Array.fill(k)(neigbour))//HeapSelect(k, neigbour)
-    heapSelect.heapify(heapSelect.heap)
-
-    println("*****HEAP BEFORE SEARCH..." + heapSelect.heap.toList)
-    //SEARCHING NEIGHBOURS
-    search(q, root, heapSelect)
-    println("*****HEAP AFTER SEARCH..." + heapSelect.heap.toList)
-
-    heapSelect.sort()
-
-    val res = heapSelect.heap.map{ neightbour =>
-      neightbour.copy(distance = Math.sqrt(neightbour.distance))
+    if (k <= 0) {
+      throw new IllegalArgumentException("Invalid k: " + k)
+    } else if (k > keys.length) {
+      throw new IllegalArgumentException("Neighbor array length is larger than the dataset size")
     }
 
-    println("\n\n\n\n--------New neighbours to be retruned.........>>>>>>>>>>>>>" + res.toList)
+    val neighbor: Neighbor = Neighbor(Array.fill(0)(0.0), Array.fill[Double](k)(0), 0, Double.MaxValue)
 
-    res.toList
+    val heapSelect: HeapSelect = HeapSelect(k = k, n = k, heap = Array.fill(k)(neighbor)) //HeapSelect(k, neigbour)
+    heapSelect.heapify(heapSelect.heap)
+
+    //SEARCHING NEIGHBOURS
+    search(q, root, heapSelect)
+    heapSelect.sort()
+
+    heapSelect.heap.map { neighborI =>
+      neighborI.copy(distance = Math.sqrt(neighborI.distance))
+    }.toList
   }
 
 
@@ -104,12 +99,12 @@ case class KDTree(
 
 }
 
-object KDTree extends KNNSearch {
+object KDTree {
 
   def apply(key: Array[Array[Double]], data: Array[Int]): KDTree = {
     val n: Int = key.length
     val index = Range(0, key.size).toArray
-    val root: Node = buildNode(key, 0, n, index)
+    val root: Node = buildNode(key, 0, n, index) //Build KDTree
     new KDTree(
       key,
       key,
@@ -140,40 +135,34 @@ object KDTree extends KNNSearch {
       }
     }
 
-    var node = Node(count = end - begin, index = begin)
+    val nodeInit = Node(count = end - begin, index = begin)
 
-    val (newNode, newMaxRadious): (Node, Double) = (0 until d).foldLeft((node, -1.0)) { (nodeAndmaxRadious, i) =>
-      val (node, maxRadious) = nodeAndmaxRadious
-      val radious = (upperBound(i) - lowerBound(i)) / 2
-      if (radious > maxRadious) {
+    val (node, newMaxRadius): (Node, Double) = (0 until d).foldLeft((nodeInit, -1.0)) { (nodeAndMaxRadius, i) =>
+      val (node, maxRadius) = nodeAndMaxRadius
+      val radius = (upperBound(i) - lowerBound(i)) / 2
+      if (radius > maxRadius) {
         val split = i
         val cutoff = (upperBound(i) + lowerBound(i)) / 2
-        (node.copy(split = split, cutoff = cutoff), radious)
+        (node.copy(split = split, cutoff = cutoff), radius)
       } else {
-        (node, maxRadious)
+        (node, maxRadius)
       }
     }
 
-    val newNode1 = if (newMaxRadious == 0) {
-      newNode.copy(upper = None, lower = None)
-    } else {
-      newNode
-    }
-
     // If the max spread is 0, make this a leaf node
-    if (newMaxRadious == 0 && node.lower == None && node.upper == None) {
+    if (newMaxRadius == 0 && node.lower == None && node.upper == None) {
       node
     } else {
-      // Partition the dataset around the midpoint in this dimension. The
+      // Partition the data set around the midpoint in this dimension. The
       // partitioning is done in-place by iterating from left-to-right and
-      // right-to-left in the same way that partioning is done in quicksort.
+      // right-to-left in the same way that partitioning is done in quick sort.
       var start = begin
       var finish = end - 1
       var size = 0
 
       while (start < finish) {
-        var i1Good: Boolean = keys(index(start))(newNode1.split) < newNode1.cutoff
-        var i2Good: Boolean = keys(index(finish))(newNode1.split) >= newNode1.cutoff
+        var i1Good: Boolean = keys(index(start))(node.split) < node.cutoff
+        var i2Good: Boolean = keys(index(finish))(node.split) >= node.cutoff
 
         if (!i1Good && !i2Good) {
           val temp = index(start)
@@ -202,7 +191,7 @@ object KDTree extends KNNSearch {
         None
       }
 
-      newNode1.copy(lower = newLower, upper = newUpper)
+      node.copy(lower = newLower, upper = newUpper)
     }
   }
 

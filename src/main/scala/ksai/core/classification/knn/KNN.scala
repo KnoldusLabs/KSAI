@@ -11,14 +11,6 @@ case class KNN(
   def predict(x: Array[Double], posteriori: Option[Array[Double]] = None): Int = {
     val neighbours: List[Neighbor] = knn.knn(x, k)
 
-    println("*****************KNN........>>>>>>>>>>>>>>>>>" + neighbours)
-
-    neighbours.map{ neigh: Neighbor =>
-      println("\n\n=======>>>NeighBour......." + neigh)
-      println("NeighBour value......." + neigh.value)
-      println("NeighBour index......." + neigh.index)
-    }
-
     if (k == 1) {
       y(neighbours(0).index)
     } else {
@@ -42,7 +34,6 @@ case class KNN(
           idx = i
         }
       }
-      println("\nIDX.............." + idx)
       idx
     }
   }
@@ -50,35 +41,16 @@ case class KNN(
 
 object KNN {
 
-  //  val knn: Option[KDTree] = None
-
   def learn(data: Array[Array[Double]], y: Array[Int], k: Int): KNN = {
     if (data.length != y.length) {
       throw new IllegalArgumentException(String.format(s"The sizes of X and Y don't match: ${data.length} != ${y.length}"))
-    }
-
-    if (k < 1) {
+    } else if(k < 1){
       throw new IllegalArgumentException(s"Illegal k = $k")
     }
-
-    //TODO Need to implement CoverTree for data length > 10
-    /*val knn: KDTree = if (data(0).length < 10) {
-      new KDTree(data, y, None, List.empty)
-    } else {
-//    new CoverTree<>(x, new EuclideanDistance())// Required if we need to handle more then 10 classes
-      new KDTree(data, y, None, List.empty)
-    }*/
 
     val knn = KDTree(data, y)
     val classes = y.toSet.size
     new KNN(y, k, classes, knn)
   }
-
-}
-
-
-trait KNNSearch {
-
-  //  def knn(query: List[Double], k: Int): List[Neighbor]
 
 }
