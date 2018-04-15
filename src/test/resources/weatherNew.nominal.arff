@@ -18,3 +18,5 @@ overcast,cool,normal,TRUE,yes
 overcast,hot,normal,FALSE,yes
 rainy,cool,normal,FALSE,yes
 rainy,cool,normal,TRUE,no
+rainy,hot,high,FALSE,no
+rainy,hot,normal,FALSE,no

@@ -167,43 +167,4 @@ object Node{
 
   def isPure(list: List[Int]): Boolean = list.distinct.lengthCompare(1) == 0
 
-/*  FilledNode(
-    NominalAttribute(windy,None,1.0,List(TRUE, FALSE)),
-    3,
-    Vector(
-      FilledNode(
-        NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),
-        0,
-        Vector(
-          LeafNode(NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),0,0),
-          LeafNode(NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),0,1),
-          LeafNode(NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),0,0)
-        )
-      ),
-      FilledNode(
-        NominalAttribute(humidity,None,1.0,List(high, normal)),
-        2,
-        Vector(
-          FilledNode(
-            NominalAttribute(temperature,None,1.0,List(hot, cool)),
-            1,
-            Vector(
-              FilledNode(
-                NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),
-                0,
-                Vector(
-                  LeafNode(NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),0,0),
-                  LeafNode(NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),0,1),
-                  LeafNode(NominalAttribute(outlook,None,1.0,List(sunny, overcast, rainy)),0,-1)
-                )
-              ),
-              LeafNode(NominalAttribute(temperature,None,1.0,List(hot, cool)),1,1)
-            )
-          ),
-          LeafNode(NominalAttribute(humidity,None,1.0,List(high, normal)),2,1)
-        )
-      )
-    )
-  )*/
-
 }
