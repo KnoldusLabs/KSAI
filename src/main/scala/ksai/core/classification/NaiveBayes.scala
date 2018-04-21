@@ -30,10 +30,6 @@ case class NaiveBayes(
                      ) extends OnlineClassifier[Array[Double]]
   with SoftClassifier[Array[Double]] with Serializable {
 
-  def getPriori: Array[Double] = {
-    priori
-  }
-
   /**
     * Online learning of naive Bayes classifier on a sequence,
     * which is modeled as a bag of words. Note that this method is NOT
@@ -279,7 +275,56 @@ case class NaiveBayes(
     *         returns -1 if the instance does not contain any feature words.
     */
   def predict(instance: SparseArray[Double] , posteriori: Array[Double]):Int = {
-    ???
+    if (posteriori.nonEmpty && posteriori.length != classCount) {
+      throw new IllegalArgumentException(String.format(s"Invalid posteriori vector size: ${posteriori.length}, expected: $classCount"))
+    }
+
+    var label = -1
+    var max = Double.NegativeInfinity
+    var `any` = model match {
+      case GENERAL => true
+      case _ => false
+    }
+
+    for (outerIterator <- 0 until classCount) {
+      var logprob = Math.log(priori(outerIterator))
+
+      for (innerIterator <- instance.index){
+        model match {
+          case GENERAL => logprob += prob(outerIterator)(innerIterator).logp(instance.valueAt(innerIterator))
+          case MULTINOMIAL =>
+            if(instance.valueAt(innerIterator) > 0) {
+              logprob += instance.valueAt(innerIterator) * Math.log(condprob(outerIterator)(innerIterator))
+              `any` = true
+            }
+          case BERNOULLI =>
+            if(instance.valueAt(innerIterator) > 0){
+              logprob += instance.valueAt(innerIterator) * Math.log(condprob(outerIterator)(innerIterator))
+              `any` = true
+            } else {
+              logprob += Math.log(1.0 - condprob(outerIterator)(innerIterator))
+            }
+        }
+      }
+
+      if(logprob > max && `any`) {
+        max = logprob
+        label = outerIterator
+      }
+
+      if(posteriori.nonEmpty) {
+        posteriori(outerIterator) = logprob
+      }
+    }
+
+    if(posteriori.nonEmpty && `any`) {
+      val posterioriSum = posteriori.map( value => Math.exp(value - max)).sum
+      for(iterator <- posteriori.indices) {
+        posteriori(iterator) = posteriori(iterator) / posterioriSum
+      }
+    }
+    label
+
   }
 
 
@@ -378,27 +423,11 @@ case class NaiveBayesTrainer(
                               priori: Array[Double] = Array.emptyDoubleArray, //A priori probabilities of each class.
                               sigma: Double = 1.0
                             ) {
-
-  def setPriori(newPriori: Array[Double]) = {
-    this.copy(priori = newPriori)
-  }
-
-  def setSmooth(newSigma: Double) = {
-    if (sigma < 0) {
-      throw new IllegalArgumentException("Invalid add-k smoothing parameter: " + sigma)
-    }
-
-    this.copy(sigma = newSigma)
-  }
+  require(sigma < 0 , "Invalid add-k smoothing parameter: " + sigma)
 
   def train(x: Array[Array[Double]], y: Array[Int]): NaiveBayes = {
-    val bayes = if (priori.isEmpty){
-       NaiveBayes(model = model, classCount = classCount,
-        independentVariablesCount = independentVariablesCount, sigma = sigma)
-    } else {
-      NaiveBayes(model = model, priori = priori, independentVariablesCount = independentVariablesCount,
-        sigma = sigma)
-    }
+    val bayes = NaiveBayes(model = model, classCount = classCount,
+        independentVariablesCount = independentVariablesCount, sigma = sigma, priori = priori)
     bayes.learn(x, y)
     bayes
   }
