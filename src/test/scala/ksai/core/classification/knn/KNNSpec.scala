@@ -1,6 +1,5 @@
 package ksai.core.classification.knn
 
-import breeze.linalg.DenseMatrix
 import ksai.data.parser.{ARFF, ARFFParser}
 import ksai.training.validation.ValidationImplicits
 import org.scalatest.{Matchers, WordSpec}
@@ -26,7 +25,7 @@ class KNNSpec extends WordSpec with Matchers with ValidationImplicits {
           error = error + 1
         }
       }
-      println("\n\nKNN with K = 3 ====== ERROR: " + error)
+      println("\n\nKNN with K = 3 ======>  ERROR: " + error)
 
       //KNN with K = 5
       val knn5: KNN = KNN.learn(data, results, 5)
@@ -37,7 +36,7 @@ class KNNSpec extends WordSpec with Matchers with ValidationImplicits {
           error = error + 1
         }
       }
-      println("\n\nKNN with K = 5 ====== ERROR: " + error)
+      println("\n\nKNN with K = 5 ======>  ERROR: " + error)
 
       //KNN with K = 7
       val knn7: KNN = KNN.learn(data, results, 7)
@@ -48,7 +47,7 @@ class KNNSpec extends WordSpec with Matchers with ValidationImplicits {
           error = error + 1
         }
       }
-      println("\n\nKNN with K = 7 ====== ERROR: " + error)
+      println("\n\nKNN with K = 7 ======>  ERROR: " + error)
 
       //KNN with K = 10
       val knn10: KNN = KNN.learn(data, results, 7)
@@ -59,7 +58,8 @@ class KNNSpec extends WordSpec with Matchers with ValidationImplicits {
           error = error + 1
         }
       }
-      println("\n\nKNN with K = 10 ====== ERROR: " + error)
+      println("\n\nKNN with K = 10 ======> ERROR: " + error)
+      println()
 
       assert(error < 10)
     }

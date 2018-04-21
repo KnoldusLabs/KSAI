@@ -2,15 +2,15 @@ package ksai.core.classification.knn
 
 
 case class Neighbor(
-                     key: Array[Double],
-                     value: Array[Double],
-                     index: Int,
-                     distance: Double
+                     key: Array[Double],//The key of neighbor.
+                     value: Array[Double],//The data object of neighbor. It may be same as the key object.
+                     index: Int,//The index of neighbor object in the dataset.
+                     distance: Double//The distance between the query and the neighbor.
                    ) {
-  def compareTo(neigbour: Neighbor): Int = {
-    val d: Int = Math.signum(distance - neigbour.distance).toInt
+  def compareTo(neighbor: Neighbor): Int = {
+    val d: Int = Math.signum(distance - neighbor.distance).toInt
     if (d == 0) {
-      index - neigbour.index
+      index - neighbor.index
     } else {
       d
     }
@@ -31,9 +31,7 @@ case class KDTree(
     } else if (k > keys.length) {
       throw new IllegalArgumentException("Neighbor array length is larger than the dataset size")
     }
-
     val neighbor: Neighbor = Neighbor(Array.fill(0)(0.0), Array.fill[Double](k)(0), 0, Double.MaxValue)
-
     val heapSelect: HeapSelect = HeapSelect(k = k, n = k, heap = Array.fill(k)(neighbor)) //HeapSelect(k, neigbour)
     heapSelect.heapify(heapSelect.heap)
 
@@ -50,8 +48,8 @@ case class KDTree(
   def search(q: Array[Double], node: Node, heapSelect: HeapSelect): Unit = {
 
     if (node.isLeaf) {
-      (node.index until node.index + node.count).map { idx =>
-        if (q == keys(index(idx)) && identicalExcluded) {
+      (node.index until (node.index + node.count)).map { idx =>
+        if (q.toList == keys(index(idx)).toList && identicalExcluded) {
           //Skip and do nothing
         } else {
           val distance = squaredDistance(q, keys(index(idx)))
@@ -71,7 +69,7 @@ case class KDTree(
       } else {
         (node.upper, node.lower)
       }
-
+      //Look in fist half
       nearerOpt.map(nearer => search(q, nearer, heapSelect))
 
       // Now look in further half
@@ -141,8 +139,8 @@ object KDTree {
       val (node, maxRadius) = nodeAndMaxRadius
       val radius = (upperBound(i) - lowerBound(i)) / 2
       if (radius > maxRadius) {
-        val split = i
-        val cutoff = (upperBound(i) + lowerBound(i)) / 2
+        val split = i //Setting split
+        val cutoff = (upperBound(i) + lowerBound(i)) / 2 //Setting cut-off
         (node.copy(split = split, cutoff = cutoff), radius)
       } else {
         (node, maxRadius)
@@ -163,7 +161,6 @@ object KDTree {
       while (start < finish) {
         var i1Good: Boolean = keys(index(start))(node.split) < node.cutoff
         var i2Good: Boolean = keys(index(finish))(node.split) >= node.cutoff
-
         if (!i1Good && !i2Good) {
           val temp = index(start)
           index(start) = index(finish)
@@ -178,13 +175,14 @@ object KDTree {
         if (i2Good) finish = finish - 1
       }
 
-      // Create the child nodes
+      // Create the left child node
       val newLower: Option[Node] = if (begin < end) {
         Some(buildNode(keys, begin, begin + size, index))
       } else {
         None
       }
 
+      // Create the left child node
       val newUpper: Option[Node] = if (begin < end) {
         Some(buildNode(keys, begin + size, end, index))
       } else {
@@ -198,12 +196,12 @@ object KDTree {
 }
 
 case class Node(
-                 count: Int = 0,
-                 index: Int = 0,
-                 split: Int = 0,
-                 cutoff: Double = 0,
-                 lower: Option[Node] = None,
-                 upper: Option[Node] = None
+                 count: Int = 0,//Number of dataset stored in this node.
+                 index: Int = 0,//The smallest point index stored in this node.
+                 split: Int = 0,//The index of coordinate used to split this node.
+                 cutoff: Double = 0,//The cutoff used to split the specific coordinate.
+                 lower: Option[Node] = None,//The child node which values of split coordinate is less than the cutoff value.
+                 upper: Option[Node] = None//The child node which values of split coordinate is greater than or equal to the cutoff value.
                ) {
 
   def isLeaf: Boolean = lower == None && upper == None

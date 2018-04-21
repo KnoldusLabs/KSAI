@@ -10,17 +10,6 @@ case class HeapSelect(
                      ) {
   var sorted: Boolean = false
 
-  def add(neighbor: Neighbor): HeapSelect = {
-    val sorted = false
-    if (n < k) {
-      heap.update(n + 1, neighbor)
-      if (n == k) {
-        heapify(heap)
-      }
-    }
-    this
-  }
-
   def heapify(arr: Array[Neighbor]): Unit = {
     val n = arr.length
     (0 until n / 2).reverse.map { i =>

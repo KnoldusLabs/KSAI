@@ -8,7 +8,7 @@ case class KNN(
                 knn: KDTree //The data structure for nearest neighbor search.
               ) {
 
-  def predict(x: Array[Double], posteriori: Option[Array[Double]] = None): Int = {
+  def predict(x: Array[Double]): Int = {
     val neighbours: List[Neighbor] = knn.knn(x, k)
 
     if (k == 1) {
@@ -18,12 +18,6 @@ case class KNN(
 
       (0 until k).map { i =>
         count(y(neighbours(i).index)) = count(y(neighbours(i).index)) + 1
-      }
-
-      posteriori.map{ post =>
-        (0 until c).map { i =>
-          post(i) = count(i) / k
-        }
       }
 
       var max = 0
@@ -50,7 +44,7 @@ object KNN {
 
     val knn = KDTree(data, y)
     val classes = y.toSet.size
-    new KNN(y, k, classes, knn)
+    KNN(y, k, classes, knn)
   }
 
 }
