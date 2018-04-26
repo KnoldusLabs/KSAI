@@ -1,6 +1,5 @@
 package ksai.core.classification
 
-import ksai.core.classification.NaiveBayesTest.x
 import ksai.data.parser.{ARFF, ARFFParser}
 import ksai.math.Distribution
 import ksai.training.validation.{LOOCV, ValidationImplicits, CrossValidation}
@@ -10,6 +9,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
 
 class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
+
+  import ksai.core.classification.NaiveBayesTest._
 
   "NaiveBayes" should {
 
@@ -38,11 +39,35 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
 
 
     "be able to test of learn method" in {
-      pending
       println("batch learn Multinomial")
-      val loocv = CrossValidation(x.length, 10)
+      val crossValidation = CrossValidation(movieX.length, 10)
       var error = 0
       var total = 0
+
+      (0 until 10).foreach{ itr =>
+        val trainX = sliceX(movieX, crossValidation.train(itr))
+        val trainY = sliceY(movieY, crossValidation.train(itr))
+
+        val naiveBayes = NaiveBayes(model = MULTINOMIAL, classCount = 2, independentVariablesCount = feature.length)
+        naiveBayes.learn(trainX, trainY)
+
+        val testX = sliceX(movieX, crossValidation.test(itr))
+        val testY = sliceY(movieY, crossValidation.test(itr))
+
+        testX.indices.foreach{ j =>
+          val label = naiveBayes.predict(testX(j))
+          if(label != -1){
+            total = total + 1
+            if(testY(j) != label){
+              error = error + 1
+            }
+          }
+        }
+      }
+
+      println(s"Multinomial error is $error of total $total")
+
+      assert(error < 265)
 
     }
 
@@ -69,7 +94,6 @@ object NaiveBayesTest{
   (0 until 2000).foreach { itr =>
     val value = resource(itr)
     val words = value.trim.split(" ")
-    println("*****" + words(0))
     if(words(0).equalsIgnoreCase("pos")){
       movieY(itr) = 1
     } else if(words(0).equalsIgnoreCase("neg")) {
@@ -82,7 +106,6 @@ object NaiveBayesTest{
     movieX(itr) = feature(x(itr))
   }
 
-  //  (0 until 2000).foreach{ iterator =>}
   val (featureMap, _) = feature.foldLeft((Map.empty[String, Int], 0)){
     case ((map, k), string) if !map.keySet.contains(string) => (map ++ Map(string -> (k + 1)), k + 1)
     case (tuple, _) => tuple
@@ -96,4 +119,15 @@ object NaiveBayesTest{
     bag
   }
 
+  def sliceX(data:Array[Array[Double]], index: Array[Int]): Array[Array[Double]] = {
+    index.indices.map{ itr =>
+      data(index(itr))
+    }.toArray
+  }
+
+  def sliceY(data:Array[Int], index: Array[Int]): Array[Int] = {
+    index.indices.map{ itr =>
+      data(index(itr))
+    }.toArray
+  }
 }

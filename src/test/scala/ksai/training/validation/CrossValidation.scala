@@ -1,6 +1,5 @@
 package ksai.training.validation
 
-import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 case class CrossValidation(chunks: Int,
@@ -15,7 +14,8 @@ object CrossValidation {
     if (k < 0 || k > n) {
       throw new IllegalArgumentException("Invalid number of CV rounds: " + k)
     }
-    val index = Random.shuffle(0 until n).toArray
+    val list = (0 until n).toList
+    val index = Random.shuffle(list).toArray
     val train: Array[Array[Int]] = new Array[Array[Int]](k)
     val test: Array[Array[Int]] = new Array[Array[Int]](k)
     val chunk = n/k

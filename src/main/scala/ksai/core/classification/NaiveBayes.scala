@@ -330,89 +330,89 @@ case class NaiveBayes(
 
 }
 
-object NaiveBayes {
-
-  def apply(priori: Array[Double], condprob: Array[Array[Distribution]]) = {
-
-    if (priori.length != condprob.length) {
-      throw new IllegalArgumentException("The number of priori probabilities and that of the classes are not same.")
-    }
-    val sum = priori.map {
-      value =>
-        if (value <= 0.0 || value >= 1) {
-          throw new IllegalArgumentException("Invalid priori probability: " + value)
-        } else value
-    }.sum
-
-    if (Math.abs(sum - 1.0) > 1E-10) {
-      throw new IllegalArgumentException("The sum of priori probabilities is not one: " + sum)
-    }
-
-    new NaiveBayes(model = GENERAL, classCount = priori.length, independentVariablesCount = condprob(0).length, priori = priori,
-      prob = condprob, predefinedPriori = true)
-
-  }
-
-  def apply(model: Model, classCount: Int, independentVariablesCount: Int) = {
-    new NaiveBayes(model = model, classCount = classCount, independentVariablesCount = independentVariablesCount)
-  }
-
-  def apply(model: Model, classCount: Int, independentVariablesCount: Int, sigma: Double) = {
-
-    if (classCount < 2) {
-      throw new IllegalArgumentException("Invalid number of classes: " + classCount)
-    }
-
-    if (independentVariablesCount <= 0) {
-      throw new IllegalArgumentException("Invalid dimension: " + independentVariablesCount)
-    }
-
-    if (sigma < 0) {
-      throw new IllegalArgumentException("Invalid add-k smoothing parameter: " + sigma)
-    }
-
-    new NaiveBayes(model = model, classCount = classCount, independentVariablesCount = independentVariablesCount,
-      sigma = sigma, priori = new Array[Double](classCount), instancesInEachClass = new Array[Int](classCount),
-      termsInEachClass = new Array[Int](classCount), ntc = Array.ofDim[Int](classCount, independentVariablesCount),
-      condprob = Array.ofDim[Double](classCount, independentVariablesCount))
-
-  }
-
-  def apply(model: Model, priori: Array[Double], independentVariablesCount: Int) = {
-    new NaiveBayes(model = model, independentVariablesCount = independentVariablesCount, priori = priori, classCount = priori.length)
-  }
-
-  def apply(model: Model, priori: Array[Double], independentVariablesCount: Int, sigma: Double) = {
-    if (independentVariablesCount <= 0) {
-      throw new IllegalArgumentException("Invalid dimension: " + independentVariablesCount)
-    }
-
-    if (sigma < 0) {
-      throw new IllegalArgumentException("Invalid add-k smoothing parameter: " + sigma)
-    }
-
-    if (priori.length < 2) {
-      throw new IllegalArgumentException("Invalid number of classes: " + priori.length)
-    }
-    val sum = priori.map {
-      value =>
-        if (value <= 0.0 || value >= 1) {
-          throw new IllegalArgumentException("Invalid priori probability: " + value)
-        } else value
-    }.sum
-
-    if (Math.abs(sum - 1.0) > 1E-10) {
-      throw new IllegalArgumentException("The sum of priori probabilities is not one: " + sum)
-    }
-
-    new NaiveBayes(model = model, classCount = priori.length, independentVariablesCount = independentVariablesCount,
-      sigma = sigma, priori = priori, predefinedPriori = true, instancesInEachClass = new Array[Int](priori.length),
-      termsInEachClass = new Array[Int](priori.length), ntc = Array.ofDim[Int](priori.length, independentVariablesCount),
-      condprob = Array.ofDim[Double](priori.length, independentVariablesCount))
-  }
-
-
-}
+//object NaiveBayes {
+//
+//  def apply(priori: Array[Double], condprob: Array[Array[Distribution]]) = {
+//
+//    if (priori.length != condprob.length) {
+//      throw new IllegalArgumentException("The number of priori probabilities and that of the classes are not same.")
+//    }
+//    val sum = priori.map {
+//      value =>
+//        if (value <= 0.0 || value >= 1) {
+//          throw new IllegalArgumentException("Invalid priori probability: " + value)
+//        } else value
+//    }.sum
+//
+//    if (Math.abs(sum - 1.0) > 1E-10) {
+//      throw new IllegalArgumentException("The sum of priori probabilities is not one: " + sum)
+//    }
+//
+//    new NaiveBayes(model = GENERAL, classCount = priori.length, independentVariablesCount = condprob(0).length, priori = priori,
+//      prob = condprob, predefinedPriori = true)
+//
+//  }
+//
+//  def apply(model: Model, classCount: Int, independentVariablesCount: Int) = {
+//    new NaiveBayes(model = model, classCount = classCount, independentVariablesCount = independentVariablesCount)
+//  }
+//
+//  def apply(model: Model, classCount: Int, independentVariablesCount: Int, sigma: Double) = {
+//
+//    if (classCount < 2) {
+//      throw new IllegalArgumentException("Invalid number of classes: " + classCount)
+//    }
+//
+//    if (independentVariablesCount <= 0) {
+//      throw new IllegalArgumentException("Invalid dimension: " + independentVariablesCount)
+//    }
+//
+//    if (sigma < 0) {
+//      throw new IllegalArgumentException("Invalid add-k smoothing parameter: " + sigma)
+//    }
+//
+//    new NaiveBayes(model = model, classCount = classCount, independentVariablesCount = independentVariablesCount,
+//      sigma = sigma, priori = new Array[Double](classCount), instancesInEachClass = new Array[Int](classCount),
+//      termsInEachClass = new Array[Int](classCount), ntc = Array.ofDim[Int](classCount, independentVariablesCount),
+//      condprob = Array.ofDim[Double](classCount, independentVariablesCount))
+//
+//  }
+//
+//  def apply(model: Model, priori: Array[Double], independentVariablesCount: Int) = {
+//    new NaiveBayes(model = model, independentVariablesCount = independentVariablesCount, priori = priori, classCount = priori.length)
+//  }
+//
+//  def apply(model: Model, priori: Array[Double], independentVariablesCount: Int, sigma: Double) = {
+//    if (independentVariablesCount <= 0) {
+//      throw new IllegalArgumentException("Invalid dimension: " + independentVariablesCount)
+//    }
+//
+//    if (sigma < 0) {
+//      throw new IllegalArgumentException("Invalid add-k smoothing parameter: " + sigma)
+//    }
+//
+//    if (priori.length < 2) {
+//      throw new IllegalArgumentException("Invalid number of classes: " + priori.length)
+//    }
+//    val sum = priori.map {
+//      value =>
+//        if (value <= 0.0 || value >= 1) {
+//          throw new IllegalArgumentException("Invalid priori probability: " + value)
+//        } else value
+//    }.sum
+//
+//    if (Math.abs(sum - 1.0) > 1E-10) {
+//      throw new IllegalArgumentException("The sum of priori probabilities is not one: " + sum)
+//    }
+//
+//    new NaiveBayes(model = model, classCount = priori.length, independentVariablesCount = independentVariablesCount,
+//      sigma = sigma, priori = priori, predefinedPriori = true, instancesInEachClass = new Array[Int](priori.length),
+//      termsInEachClass = new Array[Int](priori.length), ntc = Array.ofDim[Int](priori.length, independentVariablesCount),
+//      condprob = Array.ofDim[Double](priori.length, independentVariablesCount))
+//  }
+//
+//
+//}
 
 
 case class NaiveBayesTrainer(
