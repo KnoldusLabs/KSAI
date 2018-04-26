@@ -3,7 +3,7 @@ package ksai.core.classification
 import ksai.core.classification.NaiveBayesTest.x
 import ksai.data.parser.{ARFF, ARFFParser}
 import ksai.math.Distribution
-import ksai.training.validation.{LOOCV, ValidationImplicits}
+import ksai.training.validation.{LOOCV, ValidationImplicits, CrossValidation}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.mutable.ArrayBuffer
@@ -40,10 +40,10 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
     "be able to test of learn method" in {
       pending
       println("batch learn Multinomial")
-      val loocv = LOOCV(x.length)
+      val loocv = CrossValidation(x.length, 10)
       var error = 0
       var total = 0
-      LOOCV.slice(loocv.train, ArrayBuffer)
+
     }
 
   }

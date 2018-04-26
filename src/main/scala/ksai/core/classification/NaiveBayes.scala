@@ -70,7 +70,6 @@ case class NaiveBayes(
     }
   }
 
-
   /**
     * Online learning of naive Bayes classifier on a sequence,
     * which is modeled as a bag of words. Note that this method is NOT
