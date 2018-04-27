@@ -1,11 +1,8 @@
 package ksai.core.classification
 
-import ksai.data.parser.{ARFF, ARFFParser}
-import ksai.math.Distribution
-import ksai.training.validation.{LOOCV, ValidationImplicits, CrossValidation}
+import ksai.training.validation.{CrossValidation, ValidationImplicits}
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
 
 class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
@@ -13,30 +10,6 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
   import ksai.core.classification.NaiveBayesTest._
 
   "NaiveBayes" should {
-
-    "be able to test of predict method" in {
-      pending
-      println(s"prediction starts ")
-
-      val arffFile: String = getClass.getResource("/iris.arff").getPath
-      val arff: ARFF[String] = ARFFParser.parse(arffFile)
-      val n = arff.data.length
-      val loocv: LOOCV = LOOCV(n)
-      val bufferedData = arff.data.map(_.to[ArrayBuffer]).to[ArrayBuffer]
-      val bufferedNumericTargets = arff.getNumericTargets.to[ArrayBuffer]
-      var error = 0
-      (0 until n).foreach{ index =>
-        val trainx: ArrayBuffer[ArrayBuffer[Double]] = LOOCV.slice(bufferedData, loocv.train(index))
-        val trainy: ArrayBuffer[Int] = LOOCV.sliceY(bufferedNumericTargets, loocv.train(index))
-        val p = trainx(0).length
-        val k = trainy.max + 1
-
-        val priori: Array[Double] = Array[Double](k)
-        val condprob:Array[Array[Distribution]] = Array(Array())
-      }
-
-    }
-
 
     "be able to test of learn method" in {
       println("batch learn Multinomial")
@@ -69,6 +42,36 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
 
       assert(error < 265)
 
+    }
+
+    "be able to test of learn method, of class SequenceNaiveBayes" in {
+      println("batch learn Bernoulli")
+      val crossValidation = CrossValidation(movieX.length, 10)
+      var error = 0
+      var total = 0
+
+      (0 until 10).foreach { itr =>
+        val trainX = sliceX(movieX, crossValidation.train(itr))
+        val trainY = sliceY(movieY, crossValidation.train(itr))
+
+        val naiveBayes = NaiveBayes(model = BERNOULLI, classCount = 2, independentVariablesCount = feature.size)
+        naiveBayes.learn(trainX, trainY)
+
+        val testX = sliceX(movieX, crossValidation.test(itr))
+        val testY = sliceY(movieY, crossValidation.test(itr))
+
+        testX.indices.foreach { j =>
+          val label = naiveBayes.predict(testX(j))
+          if(label != -1){
+            total = total + 1
+            if(testY(j) != label){
+              error = error + 1
+            }
+          }
+        }
+      }
+      println(s"Bernoulli error is $error of total $total")
+      assert(error < 270)
     }
 
   }
