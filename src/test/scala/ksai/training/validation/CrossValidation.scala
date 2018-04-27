@@ -29,10 +29,10 @@ object CrossValidation {
       (0 until n).foldLeft ((0, 0)) {
         case ((p, q), j) =>
           if (j >= start && j < end) {
-            test(itr)(p + 1) = index(j)
+            test(itr)(p) = index(j)
             (p + 1, q)
           } else {
-            train(itr)(q + 1) = index(j)
+            train(itr)(q) = index(j)
             (p, q + 1)
           }
       }

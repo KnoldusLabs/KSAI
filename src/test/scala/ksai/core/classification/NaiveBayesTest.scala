@@ -48,7 +48,7 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
         val trainX = sliceX(movieX, crossValidation.train(itr))
         val trainY = sliceY(movieY, crossValidation.train(itr))
 
-        val naiveBayes = NaiveBayes(model = MULTINOMIAL, classCount = 2, independentVariablesCount = feature.length)
+        val naiveBayes = NaiveBayes(model = MULTINOMIAL, classCount = 2, independentVariablesCount = feature.size)
         naiveBayes.learn(trainX, trainY)
 
         val testX = sliceX(movieX, crossValidation.test(itr))
@@ -102,17 +102,18 @@ object NaiveBayesTest{
     x(itr) = words
   }
 
+  val (featureMap, _) = feature.foldLeft((Map.empty[String, Int], 0)){
+    case ((map, k), string) if !map.keySet.contains(string) => (map ++ Map(string -> k), k + 1)
+    case (tuple, _) => tuple
+  }
+
   x.indices.foreach{itr =>
     movieX(itr) = feature(x(itr))
   }
 
-  val (featureMap, _) = feature.foldLeft((Map.empty[String, Int], 0)){
-    case ((map, k), string) if !map.keySet.contains(string) => (map ++ Map(string -> (k + 1)), k + 1)
-    case (tuple, _) => tuple
-  }
 
   def feature(x: Array[String]): Array[Double] = {
-    val bag = new Array[Double](featureMap.size)
+    val bag = new Array[Double](feature.size)
     x.foreach{word =>
       featureMap.get(word).foreach{f=> bag(f) = bag(f) + 1}
     }
