@@ -38,7 +38,7 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
         }
       }
 
-      println(s"Multinomial error is $error of total $total")
+//      println(s"Multinomial error is $error of total $total")
 
       assert(error < 265)
 
@@ -54,7 +54,7 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
         val trainX = sliceX(movieX, crossValidation.train(itr))
         val trainY = sliceY(movieY, crossValidation.train(itr))
 
-        val naiveBayes = NaiveBayes(model = BERNOULLI, classCount = 2, independentVariablesCount = feature.size)
+        val naiveBayes = NaiveBayes(model = BERNOULLI, classCount = 2, independentVariablesCount = feature.length)
         naiveBayes.learn(trainX, trainY)
 
         val testX = sliceX(movieX, crossValidation.test(itr))
@@ -70,7 +70,7 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
           }
         }
       }
-      println(s"Bernoulli error is $error of total $total")
+//      println(s"Bernoulli error is $error of total $total")
       assert(error < 270)
     }
 
@@ -116,7 +116,7 @@ object NaiveBayesTest{
 
 
   def feature(x: Array[String]): Array[Double] = {
-    val bag = new Array[Double](feature.size)
+    val bag = new Array[Double](feature.length)
     x.foreach{word =>
       featureMap.get(word).foreach{f=> bag(f) = bag(f) + 1}
     }

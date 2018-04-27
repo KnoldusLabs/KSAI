@@ -14,13 +14,13 @@ case object BERNOULLI extends Model
 
 case class NaiveBayes(
                        serialVersionUID: Long,
-                       EPSILON: Double,
-                       model: Model,
+                       EPSILON: Double, //Fudge to keep nonzero.
+                       model: Model, //The generation models of naive Bayes classifier
                        classCount: Int, //The number of classes.
                        independentVariablesCount: Int, //The number of independent variables.
                        priori: Array[Double], //A priori probabilities of each class.
                        prob: Array[Array[Distribution]], //The conditional distribution for general purpose naive Bayes classifier.
-                       sigma: Double,
+                       sigma: Double, //Amount of add-k smoothing of evidence.
                        predefinedPriori: Boolean, //True if the priori probabilities are pre defined by user.
                        instanceCount: Int, //The total number of instances.
                        instancesInEachClass: Array[Int], //The number of instances in each class.
