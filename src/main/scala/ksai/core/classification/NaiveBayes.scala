@@ -48,8 +48,8 @@ case class NaiveBayes(
         for {
           iterator <- 0 until independentVariablesCount
         } yield {
-          this.ntc(label)(iterator) + instance(iterator)
-          termsInEachClass(label) + instance(iterator)
+          this.ntc(label)(iterator) = (this.ntc(label)(iterator) + instance(iterator)).toInt
+          termsInEachClass(label) = (termsInEachClass(label) + instance(iterator)).toInt
         }
         this.instancesInEachClass(label) = instancesInEachClass(label) + 1
         copy(instanceCount = instanceCount + 1)
@@ -59,7 +59,7 @@ case class NaiveBayes(
           iterator <- 0 until independentVariablesCount
         } yield {
           if (instance(iterator) > 0) {
-            ntc(label)(iterator) + 1
+            ntc(label)(iterator) = ntc(label)(iterator) + 1
           }
         }
         this.instancesInEachClass(label) = instancesInEachClass(label) + 1
@@ -111,13 +111,13 @@ case class NaiveBayes(
           ntc(label)(iterator) + instance.valueAt(iterator)
           termsInEachClass(label) + instance.valueAt(iterator)
         }
-        instanceCount + 1
-        instancesInEachClass(label) + 1
+        copy(instanceCount = instanceCount + 1)
+        instancesInEachClass(label) = instancesInEachClass(label) + 1
         update()
       case BERNOULLI =>
         for (iterator <- instance.index) {
           if (instance.valueAt(iterator) > 0) {
-            ntc(label)(iterator) + 1
+            ntc(label)(iterator) = ntc(label)(iterator) + 1
           }
         }
         this.copy(instanceCount = instanceCount + 1)
@@ -160,7 +160,7 @@ case class NaiveBayes(
             innerIterator <- 0 until independentVariablesCount
           } yield {
             if (instances(outerIterator)(innerIterator) > 0) {
-              this.ntc(labels(outerIterator))(innerIterator) + 1
+              this.ntc(labels(outerIterator))(innerIterator) = this.ntc(labels(outerIterator))(innerIterator) + 1
             }
           }
 
