@@ -1,14 +1,14 @@
-package ksai.core.association
+package ksai.core.association.fptree
 
 import java.util
 
-sealed trait DimensionMagnet {
+sealed trait FPTreeMagnet {
   type Result = FPTree
 
   def apply(): Result
 }
 
-object DimensionMagnet {
+object FPTreeMagnet {
 
   /**
     * FP-Tree Constructor. This is two-step construction, where user will call this
@@ -17,7 +17,7 @@ object DimensionMagnet {
     * @param tuple the arguments of the constructor - frequencies of each item and
     *              minimum support.
     */
-  implicit def for1DArray(tuple: (Array[Int], Int)) = new DimensionMagnet {
+  implicit def for1DArray(tuple: (Array[Int], Int)) = new FPTreeMagnet {
     val (frequencies, minSupport) = (tuple._1, tuple._2)
 
     def apply(): Result = applyHelper(frequencies, minSupport)
@@ -28,7 +28,7 @@ object DimensionMagnet {
     *
     * @param tuple the arguments of the constructor - itemset and minimum support.
     */
-  implicit def for2DArray(tuple: (Array[Array[Int]], Int)) = new DimensionMagnet {
+  implicit def for2DArray(tuple: (Array[Array[Int]], Int)) = new FPTreeMagnet {
     def apply(): Result = {
       val (itemsets, minSupport) = (tuple._1, tuple._2)
       val frequencies = freq(itemsets)

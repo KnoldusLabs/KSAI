@@ -1,10 +1,10 @@
-package ksai.core.association
+package ksai.core.association.fptree
 
-class Node(var parent: Option[Node] = None,
-           var next: Option[Node] = None,
-           var children: Option[java.util.HashMap[Int, Node]] = None,
-           var id: Int = -1,
-           var count: Int = 0) {
+private[fptree] class Node(var parent: Option[Node] = None,
+                           var next: Option[Node] = None,
+                           var children: Option[java.util.HashMap[Int, Node]] = None,
+                           var id: Int = -1,
+                           var count: Int = 0) {
 
   def add(index: Int, end: Int, itemset: Array[Int], support: Int, fPTree: FPTree): Unit = {
     if (index < end) {

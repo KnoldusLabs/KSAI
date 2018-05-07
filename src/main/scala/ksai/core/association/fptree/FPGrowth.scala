@@ -1,24 +1,69 @@
-package ksai.core.association
+package ksai.core.association.fptree
 
 import java.io.PrintStream
 
+import ksai.core.association.totalsupporttree.TotalSupportTree
+
 import scala.collection.mutable.ArrayBuffer
 
-class FPGrowth(minSupport: Int, val T0: FPTree) {
+class FPGrowth(
+                /**
+                  * The required minimum support of the itemsets.
+                  */
+                minSupport: Int,
 
-  @volatile
+                /**
+                  * The FP-Tree
+                  */
+                val T0: FPTree) {
+
+  /**
+    * The list of frequent itemsets.
+    */
   var list: ArrayBuffer[ItemSet] = new ArrayBuffer[ItemSet]()
 
+  /**
+    * The total support tree.
+    */
+  var maybeTtree: Option[TotalSupportTree] = None
+
+  /**
+    * Mines the frequent itemsets. These itemsets are put in the [[list]]
+    * and returned.
+    */
   def learn(): ArrayBuffer[ItemSet] = {
     learn(None)
 
     list
   }
 
+  /**
+    * Mines the frequent itemsets. These itemsets are printed out
+    * to the provided stream.
+    *
+    * @param maybeOut the provided stream.
+    */
   def learn(maybeOut: Option[PrintStream]): Long = {
     grow(maybeOut, T0, None)
   }
 
+  /**
+    * Mines the frequent itemsets. Start with the bottom of the header table and
+    * work upwards. For each available FP-Tree Node -
+    * <OL>
+    * <LI> Count the support.</LI>
+    * <LI> Build up itemset so far.</LI>
+    * <LI> Add to supported sets.</LI>
+    * <LI> Build a new FP-Tree: (i) Create a new local root, (ii) Create a new
+    * header table, and (iii) populate with ancestors.</LI>
+    * <LI> If new local FP-Tree is not empty, repeat the mining operation.</LI>
+    * </OL>
+    * Otherwise end.
+    *
+    * @param maybeOut     the provided output stream.
+    * @param fPTree       the FP-Tree to mine from.
+    * @param maybeItemset the current itemset as generated so far.
+    */
   def grow(maybeOut: Option[PrintStream],
            fPTree: FPTree,
            maybeItemset: Option[Array[Int]]): Long = {
@@ -40,6 +85,15 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
     n
   }
 
+  /**
+    * Mines FP-Tree with respect to a single item in the header table.
+    *
+    * @param headerTableItem  the header table item to mine for.
+    * @param maybeItemset     the current itemset as generated so far.
+    * @param maybeOut         the provided output stream.
+    * @param localItemSupport support of nodes in conditional FP-Tree.
+    * @param prefixItemSet    the nodes to be added in the conditional FP-Tree.
+    */
   def grow(headerTableItem: HeaderTableItem,
            maybeItemset: Option[Array[Int]],
            maybeOut: Option[PrintStream],
@@ -63,7 +117,11 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
 
     list += ItemSet(itemset, support)
 
-    // implement total support tree
+    maybeTtree = maybeTtree.fold[Option[TotalSupportTree]](None) { ttree =>
+      ttree.add(itemset, support)
+      Some(ttree)
+    }
+
 
     val maybeHeaderTableItemNode: Option[Node] = headerTableItem.maybeNode.fold[Option[Node]](None)(node => node.next)
 
@@ -84,7 +142,10 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
 
           list += ItemSet(newItemset, support)
 
-          //implement total support tree
+          maybeTtree = maybeTtree.fold[Option[TotalSupportTree]](None) { ttree =>
+            ttree.add(newItemset, support)
+            Some(ttree)
+          }
 
           maybeParent = parent.parent
         }
@@ -108,6 +169,16 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
     n
   }
 
+  /**
+    * Mines the frequent itemsets of a conditional FP-Tree by traversing the
+    * header table from bottom towards top.
+    *
+    * @param maybeItemset     the current itemset as generated so far.
+    * @param maybeOut         the provided output stream.
+    * @param localItemSupport support of nodes in conditional FP-Tree.
+    * @param prefixItemSet    the nodes to be added in the conditional FP-Tree.
+    * @param fPTree           the conditional FP-Tree.
+    */
   def grow(maybeItemset: Option[Array[Int]],
            maybeOut: Option[PrintStream],
            localItemSupport: Array[Int],
@@ -127,6 +198,13 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
     n
   }
 
+  /**
+    * Counts the supports of single items in ancestor item sets linked list.
+    *
+    * @param maybeNode        the node whose ancestor's supports need to be counted.
+    * @param localItemSupport the support of the node's ancestors.
+    * @return the counted support of all the ancestors of the node.
+    */
   def getLocalItemSupport(maybeNode: Option[Node], localItemSupport: Array[Int]): Array[Int] = {
 
     val mutableLocalItemSupport = Array.fill(localItemSupport.length)(0)
@@ -152,6 +230,14 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
     if (!end) mutableLocalItemSupport else new Array[Int](0)
   }
 
+  /**
+    * Generates a conditional FP-Tree.
+    *
+    * @param maybeNode        the node for which the conditional FP-Tree needs to be built.
+    * @param localItemSupport the supports of the ancestors of the node.
+    * @param prefixItemSet    the ancestors of the node that need to be added in the
+    *                         conditional FP-Tree.
+    */
   def getLocalFPTree(maybeNode: Option[Node], localItemSupport: Array[Int], prefixItemSet: Array[Int]): FPTree = {
     val tree = FPTree(localItemSupport, minSupport)
 
@@ -178,6 +264,29 @@ class FPGrowth(minSupport: Int, val T0: FPTree) {
     }
 
     tree
+  }
+
+  /**
+    * Add an itemset into the FP-Tree.
+    *
+    * @param itemset an itemset, that should NOT contain duplicated items.
+    *                Note that it is reordered after the call.
+    */
+  def add(itemset: Array[Int]): Unit = T0.add(itemset)
+
+  /**
+    * Returns the number of transactions in the FP-Tree.
+    */
+  def size: Int = T0.size
+
+  /**
+    * Mines the frequent itemsets. Discovered frequent itemsets are stored in a
+    * total support tree.
+    */
+  def buildTotalSupportTree(): Option[TotalSupportTree] = {
+    maybeTtree = Some(TotalSupportTree(T0.order, minSupport, T0.numFreqItems))
+    learn()
+    maybeTtree
   }
 }
 

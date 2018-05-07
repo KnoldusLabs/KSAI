@@ -1,4 +1,4 @@
-package ksai.core.association
+package ksai.core.association.fptree
 
 import java.util.Comparator
 

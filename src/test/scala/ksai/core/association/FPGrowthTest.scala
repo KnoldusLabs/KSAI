@@ -1,5 +1,6 @@
 package ksai.core.association
 
+import ksai.core.association.fptree.FPGrowth
 import ksai.training.validation.ValidationImplicits
 import org.scalatest.{Matchers, WordSpec}
 
