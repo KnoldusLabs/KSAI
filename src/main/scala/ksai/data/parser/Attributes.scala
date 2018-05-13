@@ -4,7 +4,6 @@ import breeze.linalg.{DenseMatrix, DenseVector}
 
 case class AttributeMeta(name: String = "", typ: String = "")
 
-
 case class ARFF[A](
                     relation: String = "",
                     attributes: List[AttributeMeta] = Nil,
@@ -44,3 +43,26 @@ case class Delimited[A](
   }
 
 }
+
+
+trait Attribute {
+  def name: String
+
+  def description: Option[String]
+
+  def weight: Double
+}
+
+case class NumericAttribute(name: String, description: Option[String], weight: Double = 1.0) extends Attribute
+
+
+case class NominalAttribute(name: String, description: Option[String] = None, weight: Double = 1.0, values: List[String] = Nil) extends Attribute {
+  def size: Int = values.size
+}
+
+case class AttributeMetaData(relation: String = "",
+                             attributes: List[Attribute] = Nil,
+                             label: Attribute = NominalAttribute(""),
+                             isDataPresent: Boolean = false,
+                             data: List[Array[Double]] = Nil,
+                             target: List[Int] = Nil)
