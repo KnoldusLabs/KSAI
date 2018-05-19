@@ -102,7 +102,7 @@ object LogisticRegression {
       case ((head :: tail, missList), _) => (head :: tail, head + 1 :: missList)
     }
     require(missedClasses.isEmpty, s"Missing class: ${missedClasses.mkString(", ")}")
-    require(labels.length > 2, "Only one class.")
+    require(labels.length >= 2, "Only one class.")
     require(labels.length == 2, "For now supporting only two classes")
 
     if(labels.length == 2){
