@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
-class LogisticRegression(trainingInstances: Array[Array[Double]],
+case class LogisticRegression(trainingInstances: Array[Array[Double]],
                          responses: Array[Int],
                          lambda: Double = 0.0,
                          tolerance: Double = 1E-5,
@@ -37,7 +37,7 @@ class LogisticRegression(trainingInstances: Array[Array[Double]],
       throw new IllegalArgumentException(s"Invalid posterior vector size: ${posterior.length}, expected: $labelCount")
     }
     if (labelCount == 2) {
-      val f = 1.0 / (1.0 + Math.exp(-LogisticRegression.dot(x, linearWeights)))
+      val f = 1.0 / (1.0 + Math.exp(-LogisticRegressionBuilder.dot(x, linearWeights)))
       if (!(posterior sameElements Array.empty[Double])) {
         posterior(0) = 1.0 - f
         posterior(1) = f
@@ -51,7 +51,7 @@ class LogisticRegression(trainingInstances: Array[Array[Double]],
       val l = -1
       val (label, max) = (0 until labelCount).foldLeft((l, Double.NegativeInfinity)) {
         case ((res, tempMax), i) =>
-          val prob = LogisticRegression.dot(x, linearWeightsMultiClass(i))
+          val prob = LogisticRegressionBuilder.dot(x, linearWeightsMultiClass(i))
           if (!(posterior sameElements Array.empty[Double])) {
             posterior(i) = prob
           }
@@ -77,7 +77,7 @@ class LogisticRegression(trainingInstances: Array[Array[Double]],
 
 }
 
-object LogisticRegression {
+object LogisticRegressionBuilder {
 
   def apply(trainingInstances: Array[Array[Double]],
             responses: Array[Int],
@@ -213,11 +213,11 @@ class BinaryObjectiveFunction(trainingInstances: Array[Array[Double]],
       val tempF = if (res.equals(Double.NaN)) {
         val n = trainingInstances.length
         (0 until n).foldLeft(0.0) { (sum, i) =>
-          val wx = LogisticRegression.dot(trainingInstances(i), w)
+          val wx = LogisticRegressionBuilder.dot(trainingInstances(i), w)
           val yi = responses(i) - NumericFunctions.logistic(wx)
           (0 until p).foreach(j => g(j) = g(j) - yi * trainingInstances(i)(j))
           g(p) = g(p) - yi
-          sum + LogisticRegression.log1pe(wx) - responses(i) * wx
+          sum + LogisticRegressionBuilder.log1pe(wx) - responses(i) * wx
         }
       } else {
         res
@@ -257,8 +257,8 @@ class BinaryObjectiveFunction(trainingInstances: Array[Array[Double]],
       val tempF = if (res.equals(Double.NaN)) {
         val n = trainingInstances.length
         (0 until n).foldLeft(0.0) { (sum, i) =>
-          val wx = LogisticRegression.dot(trainingInstances(i), w)
-          sum + LogisticRegression.log1pe(wx) - responses(i) * wx
+          val wx = LogisticRegressionBuilder.dot(trainingInstances(i), w)
+          sum + LogisticRegressionBuilder.log1pe(wx) - responses(i) * wx
         }
       } else {
         res
@@ -300,8 +300,8 @@ object BinaryObjectiveFunction {
   case class FTask(start: Int, end: Int, x: Array[Array[Double]], y: Array[Int], w: Array[Double] = Array.empty[Double]) {
 
     def call: Double = start until end map { i =>
-      val wx = LogisticRegression.dot(x(i), w)
-      LogisticRegression.log1pe(wx) - y(i) * wx
+      val wx = LogisticRegressionBuilder.dot(x(i), w)
+      LogisticRegressionBuilder.log1pe(wx) - y(i) * wx
     } sum
   }
 
@@ -312,11 +312,11 @@ object BinaryObjectiveFunction {
       val g = new Array[Double](w.length + 1)
 
       val f: immutable.Seq[Double] = (start until end).map { i =>
-        val wx = LogisticRegression.dot(x(i), w)
+        val wx = LogisticRegressionBuilder.dot(x(i), w)
         val yi = y(i) - NumericFunctions.logistic(wx)
         (0 until p).foreach { j => g(j) = g(j) - yi * x(i)(j) }
         g(p) = g(p) - yi
-        LogisticRegression.log1pe(wx) - y(i) * wx
+        LogisticRegressionBuilder.log1pe(wx) - y(i) * wx
       }
 
       g(w.length) = f.sum
@@ -363,9 +363,9 @@ class MultiClassObjectiveFunction(trainingInstances: Array[Array[Double]],
         val n = trainingInstances.length
         (0 until n).foldLeft(0.0) { (sum, i) =>
           (0 until numClasses).foreach(j =>
-            prob(j) = LogisticRegression.dot(trainingInstances(i), w, j * (p + 1))
+            prob(j) = LogisticRegressionBuilder.dot(trainingInstances(i), w, j * (p + 1))
           )
-          LogisticRegression.softMax(prob)
+          LogisticRegressionBuilder.softMax(prob)
 
           (0 until numClasses).foreach { j =>
             val yi = (if (responses(i) == j) 1.0 else 0.0) - prob(j)
@@ -423,9 +423,9 @@ class MultiClassObjectiveFunction(trainingInstances: Array[Array[Double]],
         val n = trainingInstances.length
         (0 until n).foldLeft(0.0) { (sum, i) =>
           (0 until numClasses).foreach(j =>
-            prob(j) = LogisticRegression.dot(trainingInstances(i), w, j * (p + 1))
+            prob(j) = LogisticRegressionBuilder.dot(trainingInstances(i), w, j * (p + 1))
           )
-          LogisticRegression.softMax(prob)
+          LogisticRegressionBuilder.softMax(prob)
           sum + NumericFunctions.log(prob(responses(i)))
         }
       } else {
@@ -475,8 +475,8 @@ object MultiClassObjectiveFunction {
       val p = x.head.length
       val prob = new Array[Double](numClasses)
       (start until end).foldLeft(0.0) { (s, i) =>
-        0 until numClasses foreach (j => prob(j) = LogisticRegression.dot(x(i), w, j * (p + 1)))
-        LogisticRegression.softMax(prob)
+        0 until numClasses foreach (j => prob(j) = LogisticRegressionBuilder.dot(x(i), w, j * (p + 1)))
+        LogisticRegressionBuilder.softMax(prob)
         s - NumericFunctions.log(prob(y(i)))
       }
     }
@@ -492,9 +492,9 @@ object MultiClassObjectiveFunction {
 
       val f: Double = (start until end).foldLeft(0.0) { (s, i) =>
         (0 until numClasses).foreach(j =>
-          prob(j) = LogisticRegression.dot(x(i), w, j * (p + 1))
+          prob(j) = LogisticRegressionBuilder.dot(x(i), w, j * (p + 1))
         )
-        LogisticRegression.softMax(prob)
+        LogisticRegressionBuilder.softMax(prob)
 
         (0 until numClasses).foreach { j =>
           val yi = (if (y(i) == j) 1.0 else 0.0) - prob(j)

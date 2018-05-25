@@ -27,7 +27,9 @@ class LogisticRegressionTest extends FlatSpec with Matchers {
     val error = ( 0 until n).foldLeft(0){(err, i) =>
       val trainX = sliceX(x, loocv.train(i).toArray)
       val trainY = sliceY(y, loocv.train(i).toArray)
-      val logisticRegression = LogisticRegression(trainX, trainY)
+      val logisticRegression: LogisticRegression = LogisticRegressionBuilder(trainX, trainY)
+      println(s"Updated weights are: ${logisticRegression.linearWeights.toList}")
+      println(s"With log likelihood: ${logisticRegression.logLikelihood}")
       if (y(loocv.test(i)) != logisticRegression.predict(x(loocv.test(i)))){
         err + 1
       } else {
