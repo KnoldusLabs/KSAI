@@ -1,21 +1,35 @@
 package ksai.core.association.totalsupporttree
 
+import akka.actor.ActorSystem
 import ksai.core.association.fptree.FPGrowth
 import org.scalatest.{Matchers, WordSpec}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.io.Source
 
 class TotalSupportTreeTest extends WordSpec with Matchers {
 
+  implicit val actorSystem = ActorSystem()
+
   "Total Support Tree" should {
+    "get frequent items from pima file" in {
+      val data = Source.fromFile(getClass.getResource("/pima.D38.N768.C2").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
+
+      val fPGrowth = FPGrowth(data, 20)
+
+      val eventualTtree = fPGrowth.buildTotalSupportTree()
+
+      eventualTtree.map(ttree => assert(ttree.get.getFrequentItemsets.size == 1803))
+    }
+
     "get frequent items from kosarak file" in {
-      val data = Source.fromFile("/home/knoldus/smile/shell/src/universal/data/transaction/kosarak.dat").getLines().map(_.split(" ").map(_.toInt)).toArray
+      val data = Source.fromFile(getClass.getResource("/kosarak.dat").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 1500)
 
-      val ttree = fPGrowth.buildTotalSupportTree()
+      val eventualTtree = fPGrowth.buildTotalSupportTree()
 
-      assert(ttree.get.getFrequentItemsets.size == 219725)
+      eventualTtree.map(ttree => assert(ttree.get.getFrequentItemsets.size == 219725))
     }
   }
 }

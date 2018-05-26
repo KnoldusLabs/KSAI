@@ -6,27 +6,27 @@ private[fptree] class Node(var parent: Option[Node] = None,
                            var id: Int = -1,
                            var count: Int = 0) {
 
-  def add(index: Int, end: Int, itemset: Array[Int], support: Int, fPTree: FPTree): Unit = {
+  def add(index: Int, end: Int, itemSet: Array[Int], support: Int, fPTree: FPTree): Unit = {
     if (index < end) {
       val childrenNodes: java.util.HashMap[Int, Node] = children.fold(new java.util.HashMap[Int, Node])(identity)
 
-      val maybeChild: Option[Node] = Option(childrenNodes.get(itemset(index)))
+      val maybeChild: Option[Node] = Option(childrenNodes.get(itemSet(index)))
 
-      maybeChild.fold(append(index, end, itemset, support, fPTree)) { child =>
+      maybeChild.fold(append(index, end, itemSet, support, fPTree)) { child =>
         child.count += support
-        child.add(index + 1, end, itemset, support, fPTree)
+        child.add(index + 1, end, itemSet, support, fPTree)
       }
     }
   }
 
-  def append(index: Int, end: Int, itemset: Array[Int], support: Int, fPTree: FPTree): Unit = {
+  def append(index: Int, end: Int, itemSet: Array[Int], support: Int, fPTree: FPTree): Unit = {
     if (index < end) {
 
       val childrenNodes: java.util.HashMap[Int, Node] = children.fold(new java.util.HashMap[Int, Node])(identity)
 
-      if (index >= fPTree.maxItemSetSize) fPTree.maxItemSetSize += 1
+      if (index >= fPTree.maxItemSetSize) fPTree.maxItemSetSize = index + 1
 
-      val item = itemset(index)
+      val item = itemSet(index)
 
       val parentNode = if (id < 0) None else Some(this)
       val child = new Node(id = item, count = support, parent = parentNode)
@@ -36,7 +36,7 @@ private[fptree] class Node(var parent: Option[Node] = None,
       childrenNodes.put(item, child)
       children = Some(childrenNodes)
 
-      child.append(index + 1, end, itemset, support, fPTree)
+      child.append(index + 1, end, itemSet, support, fPTree)
     }
   }
 

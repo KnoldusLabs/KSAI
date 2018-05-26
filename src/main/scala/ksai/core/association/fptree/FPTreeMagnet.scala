@@ -12,7 +12,7 @@ object FPTreeMagnet {
 
   /**
     * FP-Tree Constructor. This is two-step construction, where user will call this
-    * constructor and then add itemsets to the FP-Tree by calling [[FPTree.add]].
+    * constructor and then add itemSets to the FP-Tree by calling [[FPTree.add]].
     *
     * @param tuple the arguments of the constructor - frequencies of each item and
     *              minimum support.
@@ -26,35 +26,35 @@ object FPTreeMagnet {
   /**
     * FP-Tree Constructor. This is one-step construction.
     *
-    * @param tuple the arguments of the constructor - itemset and minimum support.
+    * @param tuple the arguments of the constructor - itemSet and minimum support.
     */
   implicit def for2DArray(tuple: (Array[Array[Int]], Int)) = new FPTreeMagnet {
     def apply(): Result = {
-      val (itemsets, minSupport) = (tuple._1, tuple._2)
-      val frequencies = freq(itemsets)
+      val (itemSets, minSupport) = (tuple._1, tuple._2)
+      val frequencies = freq(itemSets)
       val fPTree = applyHelper(frequencies, minSupport)
 
-      itemsets.foreach(fPTree.add)
+      itemSets.foreach(fPTree.add)
 
       fPTree
     }
   }
 
   /**
-    * Calculates frequency of the items in the input itemsets and stores them at
+    * Calculates frequency of the items in the input itemSets and stores them at
     * the item's value as an index in the new array.
     *
-    * @param itemsets the itemset containing items to calculate the frequency of.
+    * @param itemSets the itemSet containing items to calculate the frequency of.
     * @return the frequency of single items.
     */
-  private def freq(itemsets: Array[Array[Int]]): Array[Int] = {
-    var max = itemsets(0)(0)
+  private def freq(itemSets: Array[Array[Int]]): Array[Int] = {
+    var max = itemSets(0)(0)
 
     var i = 0
-    while (i < itemsets.length) {
+    while (i < itemSets.length) {
       var j = 0
-      while (j < itemsets(i).length) {
-        if (max < itemsets(i)(j)) max = itemsets(i)(j)
+      while (j < itemSets(i).length) {
+        if (max < itemSets(i)(j)) max = itemSets(i)(j)
         j += 1
       }
       i += 1
@@ -63,10 +63,10 @@ object FPTreeMagnet {
     val frequencies = new Array[Int](max + 1)
 
     i = 0
-    while (i < itemsets.length) {
+    while (i < itemSets.length) {
       var j = 0
-      while (j < itemsets(i).length) {
-        frequencies(itemsets(i)(j)) += 1
+      while (j < itemSets(i).length) {
+        frequencies(itemSets(i)(j)) += 1
         j += 1
       }
       i += 1
@@ -78,7 +78,7 @@ object FPTreeMagnet {
   /**
     * Helper function for the construction of the FP-Tree object.
     *
-    * @param frequencies frequency of each item in the itemsets.
+    * @param frequencies frequency of each item in the itemSets.
     * @param minSupport  the required minimum support of item sets in terms of
     *                    frequency.
     */
@@ -102,7 +102,7 @@ object FPTreeMagnet {
 
     while (i < frequencies.length) {
       if (frequencies(i) >= minSupport) {
-        //i is the index at which it's frequency is stored. So i is basically the item in itemset.
+        //i is the index at which it's frequency is stored. So i is basically the item in itemSet.
         headerTable(j) = new HeaderTableItem(i, count = frequencies(i))
         j += 1
       }

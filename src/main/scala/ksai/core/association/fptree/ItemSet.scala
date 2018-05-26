@@ -7,6 +7,6 @@ case class ItemSet(
                     items: Array[Int],
 
                     /**
-                      * The associated support of the itemset.
+                      * The associated support of the item set.
                       */
                     support: Int)

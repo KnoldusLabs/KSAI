@@ -2,7 +2,7 @@ package ksai.core.association.fptree
 
 final class FPTree(
                     /**
-                      * The required minimum support of the itemsets.
+                      * The required minimum support of the itemSets.
                       */
                     minSupport: Int,
 
@@ -47,15 +47,15 @@ final class FPTree(
                     var maxItemSetSize: Int = -1) {
 
   /**
-    * Add an itemset into the FP-Tree.
+    * Add an item set into the FP-Tree.
     *
-    * @param itemset an itemset which should NOT contain duplicate items.
+    * @param itemSet an item set which should NOT contain duplicate items.
     */
-  def add(itemset: Array[Int]): Unit = {
+  def add(itemSet: Array[Int]): Unit = {
     numTransactions += 1
     var m = 0
 
-    val o = itemset.map { item =>
+    val o = itemSet.map { item =>
       if (itemSupport(item) >= minSupport) m += 1
       order(item)
     }
@@ -65,9 +65,9 @@ final class FPTree(
       //quicksort
       var index = 0
 
-      val zippedCollection = new Array[(Int, Int)](itemset.length)
-      while (index < itemset.length) {
-        zippedCollection(index) = (o(index), itemset(index))
+      val zippedCollection = new Array[(Int, Int)](itemSet.length)
+      while (index < itemSet.length) {
+        zippedCollection(index) = (o(index), itemSet(index))
         index += 1
       }
 
@@ -75,41 +75,39 @@ final class FPTree(
 
       index = 0
 
-      val sortedItemset = new Array[Int](itemset.length)
-      while (index < itemset.length) {
-        sortedItemset(index) = sortedCollection(index)._2
+      val sortedItemSet = new Array[Int](itemSet.length)
+      while (index < itemSet.length) {
+        sortedItemSet(index) = sortedCollection(index)._2
         index += 1
       }
 
       var i = 1
       while (i < m) {
-        if (sortedItemset(i) == sortedItemset(i - 1)) {
+        if (sortedItemSet(i) == sortedItemSet(i - 1)) {
           m -= 1
           var j = i
           while (j < m) {
-            sortedItemset(j) = sortedItemset(j + 1)
+            sortedItemSet(j) = sortedItemSet(j + 1)
             j += 1
           }
         }
         i += 1
       }
 
-      root.add(0, m, sortedItemset, 1, this)
+      root.add(0, m, sortedItemSet, 1, this)
     }
   }
 
   /**
-    * Add an itemset into the FP-Tree. The items in the itemset are already in the
+    * Add an itemSet into the FP-Tree. The items in the itemSet are already in the
     * descending order of their frequency.
     *
-    * @param index   the current item index in the itemset.
-    * @param end     the end index of the itemset.
-    * @param itemset an itemset.
-    * @param support the support associated with the itemset.
+    * @param index   the current item index in the itemSet.
+    * @param end     the end index of the itemSet.
+    * @param itemSet an itemSet.
+    * @param support the support associated with the itemSet.
     */
-  def add(index: Int, end: Int, itemset: Array[Int], support: Int): Unit = {
-    root.add(index, end, itemset, support, this)
-  }
+  def add(index: Int, end: Int, itemSet: Array[Int], support: Int): Unit = root.add(index, end, itemSet, support, this)
 
   /**
     * Returns the number of transactions in the database.

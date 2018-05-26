@@ -1,12 +1,15 @@
 package ksai.core.association
 
+import akka.actor.ActorSystem
 import ksai.core.association.fptree.FPGrowth
 import ksai.training.validation.ValidationImplicits
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.io.Source
 
-class FPGrowthTest extends WordSpec with Matchers with ValidationImplicits {
+class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits {
+
+  implicit val actorSystem = ActorSystem("FPGrowth")
 
   val itemsets =
     Array(Array(1, 3),
@@ -25,9 +28,9 @@ class FPGrowthTest extends WordSpec with Matchers with ValidationImplicits {
     "learn with 0 arguments" in {
 
       val fPGrowth = FPGrowth(itemsets, 3)
-      val results = fPGrowth.learn()
+      val eventualResults = fPGrowth.learn()
 
-      assert(results.size == 8)
+      eventualResults.map(results => assert(results.size == 8))
       /*assert(3 == results(0).support)
       assert(1 == results(0).items.length)
       assert(4 == results(0).items(0))
@@ -46,23 +49,23 @@ class FPGrowthTest extends WordSpec with Matchers with ValidationImplicits {
     }
 
     "learn with values in Pima file" in {
-      val data = Source.fromFile("/home/knoldus/smile/shell/src/universal/data/transaction/pima.D38.N768.C2").getLines().map(_.split(" ").map(_.toInt)).toArray
+      val data = Source.fromFile(getClass.getResource("/pima.D38.N768.C2").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 20)
 
       val results = fPGrowth.learn(Some(System.out))
 
-      assert(results == 1803)
+      results.map(result => assert(result == 1803))
     }
 
     "learn with values in Kosarak file" in {
-      val data = Source.fromFile("/home/knoldus/smile/shell/src/universal/data/transaction/kosarak.dat").getLines().map(_.split(" ").map(_.toInt)).toArray
+      val data = Source.fromFile(getClass.getResource("/kosarak.dat").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 1500)
 
-      val results = fPGrowth.learn()
+      val results = fPGrowth.learn(Some(System.out))
 
-      assert(results.size == 219725)
+      results.map(result => assert(result == 219725))
     }
   }
 }

@@ -1,13 +1,16 @@
 package ksai.core.association
 
+import akka.actor.ActorSystem
 import ksai.training.validation.ValidationImplicits
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.io.Source
 
-class ARMTest extends WordSpec with Matchers with ValidationImplicits {
+class ARMTest extends AsyncWordSpec with Matchers with ValidationImplicits {
 
-  val itemsets = Array(
+  implicit val actorSystem = ActorSystem()
+
+  val itemSets = Array(
     Array(1, 3),
     Array(2),
     Array(4),
@@ -22,33 +25,31 @@ class ARMTest extends WordSpec with Matchers with ValidationImplicits {
   "ARM" should {
 
     "learn from small dataset" in {
-      val arm = ARM(itemsets, 3)
+      val arm = ARM(itemSets, 3)
 
-      val rules = arm.learn(0.5)
+      val eventualRules = arm.learn(0.5)
 
-      assert(rules.length == 9)
+      eventualRules.map(rules => assert(rules.length == 9))
     }
 
     "learn from pima file" in {
-      val data = Source.fromFile("/home/knoldus/smile/shell/src/universal/data/transaction/pima.D38.N768.C2").getLines().map(_.split(" ").map(_.toInt)).toArray
+      val data = Source.fromFile(getClass.getResource("/pima.D38.N768.C2").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val arm = ARM(data, 20)
 
-      val results = arm.learn(0.9)
+      val eventualResults = arm.learn(0.9)
 
-      results.foreach(println)
-
-      assert(results.size == 6803)
+      eventualResults.map(results => assert(results.size == 6803))
     }
 
     "learn from kosarak file" in {
-      val data: Array[Array[Int]] = Source.fromFile("/home/knoldus/smile/shell/src/universal/data/transaction/kosarak.dat").getLines().map(_.split(" ").map(_.toInt)).toArray
+      val data: Array[Array[Int]] = Source.fromFile(getClass.getResource("/kosarak.dat").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val arm = ARM(data, 0.003)
 
-      val results = arm.learn(0.5)
+      val eventualResults = arm.learn(0.5)
 
-      assert(results.size == 17932)
+      eventualResults.map(results => assert(results.size == 17932))
     }
   }
 }

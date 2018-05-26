@@ -2,22 +2,22 @@ package ksai.core.association
 
 case class AssociationRule(
                             /**
-                              * Antecedent(LHS) itemset.
+                              * Antecedent(LHS) item set.
                               */
                             antecedent: Array[Int],
 
                             /**
-                              * Consequent(RHS) itemset.
+                              * Consequent(RHS) item set.
                               */
                             consequent: Array[Int],
 
                             /**
-                              * Support of the itemset.
+                              * Support of the item set.
                               */
                             support: Double,
 
                             /**
-                              * The confidence of the itemset.
+                              * The confidence of the item set.
                               */
                             confidence: Double) {
 
