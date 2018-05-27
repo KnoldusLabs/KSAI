@@ -3,6 +3,7 @@ package ksai.core.association
 import java.io.{File, FileWriter}
 
 import akka.actor.ActorSystem
+import akka.util.Timeout
 import ksai.core.association.fptree.FPGrowth
 import ksai.core.association.totalsupporttree.{Node, TotalSupportTree}
 
@@ -40,7 +41,7 @@ class ARM(
     * @param confidence the confidence threshold for the association rules.
     * @return ArrayBuffer of the discovered Association Rules.
     */
-  def learn(confidence: Double)(implicit actorSystem: ActorSystem): Future[ArrayBuffer[AssociationRule]] = {
+  def learn(confidence: Double)(implicit actorSystem: ActorSystem, timeout: Timeout): Future[ArrayBuffer[AssociationRule]] = {
     fPGrowth.buildTotalSupportTree().map { tTree =>
       maybeTTree = tTree
 

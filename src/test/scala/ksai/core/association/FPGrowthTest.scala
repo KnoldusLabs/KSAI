@@ -1,16 +1,20 @@
 package ksai.core.association
 
 import akka.actor.ActorSystem
+import akka.util.Timeout
 import ksai.core.association.fptree.FPGrowth
 import ksai.training.validation.ValidationImplicits
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 
+import scala.concurrent.duration._
 import scala.io.Source
+import scala.language.postfixOps
 
-class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits {
+class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits
+  with BeforeAndAfterAll {
 
-  implicit val actorSystem = ActorSystem("FPGrowth")
-
+  implicit val actorSystem: ActorSystem = ActorSystem("FP-Growth")
+  implicit val timeout: Timeout = Timeout(200 seconds)
   val itemsets =
     Array(Array(1, 3),
       Array(2),
@@ -22,6 +26,10 @@ class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits 
       Array(1, 3),
       Array(1, 2, 3),
       Array(1, 2, 3))
+
+  override def afterAll(): Unit = {
+    actorSystem.terminate()
+  }
 
   "FP-Growth" should {
 

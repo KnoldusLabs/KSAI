@@ -1,14 +1,18 @@
 package ksai.core.association
 
 import akka.actor.ActorSystem
+import akka.util.Timeout
 import ksai.training.validation.ValidationImplicits
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.concurrent.duration._
 import scala.io.Source
+import scala.language.postfixOps
 
 class ARMTest extends AsyncWordSpec with Matchers with ValidationImplicits {
 
-  implicit val actorSystem = ActorSystem()
+  implicit val actorSystem: ActorSystem = ActorSystem("ARM-Test")
+  implicit val timeout: Timeout = Timeout(20 seconds)
 
   val itemSets = Array(
     Array(1, 3),

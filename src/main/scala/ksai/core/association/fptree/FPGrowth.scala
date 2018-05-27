@@ -11,7 +11,6 @@ import ksai.core.association.totalsupporttree.TotalSupportTree
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 class FPGrowth(
@@ -24,14 +23,6 @@ class FPGrowth(
                   * The FP-Tree
                   */
                 val T0: FPTree) {
-  private val actorSystem = ActorSystem("FP-Growth")
-
-  private val fPGrowthTask =
-    actorSystem.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2)
-      .props(FPGrowthTask.props(minSupport)))
-
-  implicit val timeout: Timeout = Timeout(45 seconds)
-
   /**
     * The list of frequent item sets.
     */
@@ -58,16 +49,10 @@ class FPGrowth(
     * Mines the frequent item sets. Discovered frequent item sets are stored in a
     * total support tree.
     */
-  def buildTotalSupportTree(): Future[Option[TotalSupportTree]] = {
+  def buildTotalSupportTree()(implicit actorSystem: ActorSystem, timeout: Timeout): Future[Option[TotalSupportTree]] = {
     maybeTTree = Some(TotalSupportTree(T0.order, minSupport, T0.numFreqItems))
     learn(None).map(_ => maybeTTree)
   }
-
-  /**
-    * Mines the frequent item sets. These item sets are put in the [[list]]
-    * and returned.
-    */
-  def learn(): Future[ArrayBuffer[ItemSet]] = learn(None).map(_ => list)
 
   /**
     * Mines the frequent item sets. These item sets are printed out
@@ -75,10 +60,11 @@ class FPGrowth(
     *
     * @param maybeOut the provided stream.
     */
-  def learn(maybeOut: Option[PrintStream]): Future[Long] = grow(maybeOut, T0, None)
+  def learn(maybeOut: Option[PrintStream])(implicit actorSystem: ActorSystem, timeout: Timeout): Future[Long] =
+    grow(maybeOut, T0, None)
 
   /**
-    * Mines the frequent item sets. Start with the bottom of the header table and
+    * Mines the frequent item sets. Starts with the bottom of the header table and
     * work upwards. For each available FP-Tree Node -
     * <OL>
     * <LI> Count the support.</LI>
@@ -94,8 +80,13 @@ class FPGrowth(
     * @param fPTree       the FP-Tree to mine from.
     * @param maybeItemSet the current item set as generated so far.
     */
-  def grow(maybeOut: Option[PrintStream], fPTree: FPTree, maybeItemSet: Option[Array[Int]]): Future[Long] = {
+  def grow(maybeOut: Option[PrintStream], fPTree: FPTree, maybeItemSet: Option[Array[Int]])
+          (implicit actorSystem: ActorSystem, timeout: Timeout): Future[Long] = {
     Future.sequence(fPTree.headerTable.reverse.toList.map { headerTableItem =>
+
+      val fPGrowthTask =
+        actorSystem.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2)
+          .props(FPGrowthTask.props(minSupport)))
 
       val localItemSet = new Array[Int](T0.numItems)
       val prefixItemSet = new Array[Int](T0.maxItemSetSize)
@@ -117,6 +108,12 @@ class FPGrowth(
       totalRules.nrOfRules
     }
   }
+
+  /**
+    * Mines the frequent item sets. These item sets are put in the [[list]]
+    * and returned.
+    */
+  def learn()(implicit actorSystem: ActorSystem, timeout: Timeout): Future[ArrayBuffer[ItemSet]] = learn(None).map(_ => list)
 }
 
 object FPGrowth {

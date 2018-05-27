@@ -1,15 +1,19 @@
 package ksai.core.association.totalsupporttree
 
 import akka.actor.ActorSystem
+import akka.util.Timeout
 import ksai.core.association.fptree.FPGrowth
 import org.scalatest.{Matchers, WordSpec}
-import scala.concurrent.ExecutionContext.Implicits.global
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.io.Source
+import scala.language.postfixOps
 
 class TotalSupportTreeTest extends WordSpec with Matchers {
 
-  implicit val actorSystem = ActorSystem()
+  implicit val actorSystem: ActorSystem = ActorSystem("TotalSupportTree-Test")
+  implicit val timeout: Timeout = Timeout(20 seconds)
 
   "Total Support Tree" should {
     "get frequent items from pima file" in {
