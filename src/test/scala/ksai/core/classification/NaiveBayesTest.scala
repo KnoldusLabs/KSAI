@@ -1,6 +1,6 @@
 package ksai.core.classification
 
-import ksai.training.validation.{CrossValidation, ValidationImplicits}
+import ksai.training.validation.{CrossValidation, LOOCV, ValidationImplicits}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.io.Source
@@ -18,14 +18,14 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
       var total = 0
 
       (0 until 10).foreach{ itr =>
-        val trainX = sliceX(movieX, crossValidation.train(itr))
-        val trainY = sliceY(movieY, crossValidation.train(itr))
+        val trainX = LOOCV.slice(movieX, crossValidation.train(itr)).toArray
+        val trainY = LOOCV.slice(movieY, crossValidation.train(itr)).toArray
 
-        val naiveBayes = NaiveBayes(model = MULTINOMIAL, classCount = 2, independentVariablesCount = feature.size)
+        val naiveBayes = NaiveBayes(model = MULTINOMIAL, classCount = 2, independentVariablesCount = feature.length)
         naiveBayes.learn(trainX, trainY)
 
-        val testX = sliceX(movieX, crossValidation.test(itr))
-        val testY = sliceY(movieY, crossValidation.test(itr))
+        val testX = LOOCV.slice(movieX, crossValidation.test(itr)).toArray
+        val testY = LOOCV.slice(movieY, crossValidation.test(itr)).toArray
 
         testX.indices.foreach{ j =>
           val label = naiveBayes.predict(testX(j))
@@ -51,14 +51,14 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
       var total = 0
 
       (0 until 10).foreach { itr =>
-        val trainX = sliceX(movieX, crossValidation.train(itr))
-        val trainY = sliceY(movieY, crossValidation.train(itr))
+        val trainX = LOOCV.slice(movieX, crossValidation.train(itr)).toArray
+        val trainY = LOOCV.slice(movieY, crossValidation.train(itr)).toArray
 
         val naiveBayes = NaiveBayes(model = BERNOULLI, classCount = 2, independentVariablesCount = feature.length)
         naiveBayes.learn(trainX, trainY)
 
-        val testX = sliceX(movieX, crossValidation.test(itr))
-        val testY = sliceY(movieY, crossValidation.test(itr))
+        val testX = LOOCV.slice(movieX, crossValidation.test(itr)).toArray
+        val testY = LOOCV.slice(movieY, crossValidation.test(itr)).toArray
 
         testX.indices.foreach { j =>
           val label = naiveBayes.predict(testX(j))
@@ -123,15 +123,4 @@ object NaiveBayesTest{
     bag
   }
 
-  def sliceX(data:Array[Array[Double]], index: Array[Int]): Array[Array[Double]] = {
-    index.indices.map{ itr =>
-      data(index(itr))
-    }.toArray
-  }
-
-  def sliceY(data:Array[Int], index: Array[Int]): Array[Int] = {
-    index.indices.map{ itr =>
-      data(index(itr))
-    }.toArray
-  }
 }

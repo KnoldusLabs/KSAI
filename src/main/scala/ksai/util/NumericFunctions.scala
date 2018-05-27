@@ -172,6 +172,8 @@ object NumericFunctions {
     (Math.round(value * scale) / scale).toDouble
   }
 
+  def sqr(x: Double): Double = x * x
+
   /**
     * Returns the dot product between two vectors.
     */
@@ -461,7 +463,6 @@ object NumericFunctions {
           x(i) = xNew(i)
         }
 
-        //        val f = func.f(xNew, gNew)
         val indices = x.indices
 
         val test = indices.foldLeft(0.0){(oldTest, i) =>
