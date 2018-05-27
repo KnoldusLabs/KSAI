@@ -1,8 +1,12 @@
 package ksai.core.classification
 
 import breeze.linalg.DenseVector
-import ksai.data.parser.Attribute
 
+/**
+  * Abstract classifier trainer.
+  * 
+  * [T] the type of input object.
+  */
 trait ClassifierTrainer[T] {
 
   def attributes: DenseVector[Attribute]

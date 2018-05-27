@@ -1,7 +1,6 @@
 package ksai.util
 
 import java.util
-import java.util.Arrays
 
 import breeze.linalg.DenseVector
 import ksai.math.{DifferentiableMultivariateFunction, MultivariateFunction}
@@ -194,12 +193,12 @@ object NumericFunctions {
     if (stpMax <= 0) {
       throw new IllegalArgumentException("Invalid upper bound of linear search step: " + stpMax)
     }
+
     val xTol = EPSILON
     val fTol = 1.0E-4
-    //    val n = xOld.length
-
     val pNorm = NumericFunctions.norm2(DenseVector(p))//norm2(p)
     val indices = xOld.indices
+
     if(pNorm > stpMax){
       val r = stpMax / pNorm
       indices.foreach(i => p(i) = p(i) * r)
@@ -249,6 +248,7 @@ object NumericFunctions {
         val rhs2 = f2 - fOld - alam2 * slope
         val a = (rhs1 / (alam * alam) - rhs2 / (alam2 * alam2)) / (alam - alam2)
         val b = (-alam2 * rhs1 / (alam * alam) + alam * rhs2 / (alam2 * alam2)) / (alam - alam2)
+
         if (a == 0.0) {
           -slope / (2.0 * b)
         } else {

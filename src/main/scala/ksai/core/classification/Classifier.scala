@@ -1,7 +1,5 @@
 package ksai.core.classification
 
-import scala.collection.mutable
-
 /**
   * A classifier assigns an input object into one of a given number of categories.
   * The input object is formally termed an instance, and the categories are
@@ -25,5 +23,9 @@ trait Classifier[A] {
     * @return the predicted class label.
     */
   def predict(instance: A): Int
+
+  def predict(instance: Array[A]): Array[Int] = {
+    instance.map(element => predict(element))
+  }
 
 }

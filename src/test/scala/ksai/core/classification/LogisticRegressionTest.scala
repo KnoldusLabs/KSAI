@@ -32,8 +32,6 @@ class LogisticRegressionTest extends WordSpec with Matchers{
         val trainX: Array[Array[Double]] = LOOCV.slice(x, loocv.train(i).toArray).toArray
         val trainY: Array[Int] = LOOCV.slice(y, loocv.train(i).toArray).toArray
         val logisticRegression: LogisticRegression = LogisticRegression(trainX, trainY)
-        println(s"Updated weights are: ${logisticRegression.linearWeights.toList}")
-        println(s"With log likelihood: ${logisticRegression.logLikelihood}")
         if (y(loocv.test(i)) != logisticRegression.predict(x(loocv.test(i)))){
           err + 1
         } else {
