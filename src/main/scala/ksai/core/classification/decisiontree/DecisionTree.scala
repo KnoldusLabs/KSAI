@@ -2,6 +2,8 @@ package ksai.core.classification.decisiontree
 
 import java.util.NoSuchElementException
 
+import akka.actor.ActorSystem
+import akka.util.Timeout
 import ksai.core.classification.decisiontree.SplitRule.SplitRule
 import ksai.core.classification.{Attribute, NUMERIC}
 
@@ -26,24 +28,29 @@ class DecisionTree(
   def impurity(count: Array[Int], n: Int): Double = splitRule match {
     case SplitRule.GINI =>
       1.0 - count.map { labelCount =>
-        if (labelCount > 0) Math.pow(labelCount / n, 2) else 0.0
+        if (labelCount > 0) Math.pow(labelCount / n.toDouble, 2) else 0.0
       }.sum
 
     case SplitRule.ENTROPY =>
       0.0 - count.map { labelCount =>
-        val p = labelCount / n
+        val p = labelCount.toDouble / n
         if (labelCount > 0) p * (Math.log(p) / Math.log(2)) else 0.0
       }.sum
 
     case SplitRule.CLASSIFICATION_ERROR =>
       val maxCount = count.map { labelCount =>
-        if (labelCount > 0) labelCount / n else 0.0
+        if (labelCount > 0) labelCount.toDouble / n else 0.0
       }.max
 
       Math.abs(1 - Math.max(0, maxCount))
   }
 
-  def predict(x: Array[Double]) = root.predict(x, attributes)
+  def predict(x: Array[Double]) = {
+    /*println("splitFeature --> " + root.splitFeature)
+    println("splitScore --> " + root.splitScore)
+    println("splitValue --> " + root.splitValue)*/
+    root.predict(x, attributes)
+  }
 }
 
 object DecisionTree {
@@ -56,7 +63,8 @@ object DecisionTree {
     * @param labels            the response variable.
     * @param maxNodes          the maximum number of leaf nodes in the tree.
     */
-  def apply(trainingInstances: Array[Array[Double]], labels: Array[Int], maxNodes: Int): DecisionTree =
+  def apply(trainingInstances: Array[Array[Double]], labels: Array[Int], maxNodes: Int)
+           (implicit actorSystem: ActorSystem, timeout: Timeout): DecisionTree =
     apply(maybeAttributes = None, trainingInstances, labels, maxNodes)
 
   /**
@@ -71,7 +79,7 @@ object DecisionTree {
   def apply(maybeAttributes: Option[Array[Attribute]],
             trainingInstances: Array[Array[Double]],
             labels: Array[Int],
-            maxNodes: Int): DecisionTree =
+            maxNodes: Int)(implicit actorSystem: ActorSystem, timeout: Timeout): DecisionTree =
     apply(maybeAttributes, trainingInstances, labels, maxNodes, SplitRule.GINI)
 
   /**
@@ -88,8 +96,8 @@ object DecisionTree {
             trainingInstances: Array[Array[Double]],
             labels: Array[Int],
             maxNodes: Int,
-            splitRule: SplitRule): DecisionTree =
-    apply(trainingInstances, labels, maxNodes, maybeAttributes, splitRule, trainingInstances(0).length, 1, None, None)
+            splitRule: SplitRule)(implicit actorSystem: ActorSystem, timeout: Timeout): DecisionTree =
+    apply(trainingInstances, labels, maxNodes, maybeAttributes, splitRule, 1, trainingInstances(0).length, None, None)
 
   /**
     * Constructor. Learns a classification tree.
@@ -118,7 +126,7 @@ object DecisionTree {
              mtry: Int,
              maybeSamples: Option[Array[Int]],
              maybeOrder: Option[Array[Option[Array[Int]]]]
-           ): DecisionTree = {
+           )(implicit actorSystem: ActorSystem, timeout: Timeout): DecisionTree = {
     if (trainingInstances.length != labels.length) {
       throw new IllegalArgumentException(s"The length of training set and labels is not equal. " +
         s"${trainingInstances.length} != ${labels.length}")
@@ -155,11 +163,19 @@ object DecisionTree {
     val order = maybeOrder.fold {
       attributes.zipWithIndex.map { case (attribute, index) =>
         attribute.`type` match {
-          case NUMERIC => Option(trainingInstances.map(_ (index).toInt).sorted)
+          case NUMERIC => //Option(trainingInstances.zipWithIndex.sortBy(_._1(index)).map(_._2))
+            //Option(trainingInstances.map(_(index)).zipWithIndex.sortBy(_._1).map(_._2))
+            val n = trainingInstances.length
+            val a = (0 until n).map { i =>
+              trainingInstances(i)(index)
+            }.toArray
+            Option(a.zipWithIndex.sortBy(_._1).map(_._2))
           case _       => None
         }
       }
     }(identity)
+
+    /*order.foreach(x => println(x.fold("None")(_.mkString(",")) + "\n"))*/
 
     val count = maybeSamples.fold {
       labels.groupBy(identity).mapValues(_.length).toSeq.sortBy(_._1).map(_._2).toArray
@@ -167,21 +183,27 @@ object DecisionTree {
       labels.zip(samples).groupBy(_._1).mapValues(_.map(_._2)).mapValues(_.sum).toSeq.sortBy(_._1).map(_._2).toArray
     }
 
+    /*println("Count --> " + count.toList)*/
+
     val posteriori = uniqueLabels.map(uniqueLabel => count(uniqueLabel) / labels.length.toDouble)
+
+    /*println("Posteriori --> " + posteriori.toList)*/
 
     val root = Node(count.indexOf(count.max), Option(posteriori))
 
-    val trainRoot = TrainNode(root, trainingInstances, labels, maybeSamples.fold(Array.fill[Int](labels.length)(1))(identity))
+    val samples = maybeSamples.fold(Array.fill[Int](labels.length)(1))(identity)
 
-    val decisionTree = new DecisionTree(trainingInstances, labels, Array(attributes.length), order, root, attributes, splitRule = splitRule, nodeSize = nodeSize, maxNodes = maxNodes, noOfClasses = noOfClasses)
+    val trainRoot = TrainNode(root, trainingInstances, labels, samples)
 
-    val nextSplits = new mutable.PriorityQueue[TrainNode]()
+    val decisionTree = new DecisionTree(trainingInstances, labels, new Array[Double](attributes.length), order, root, attributes, splitRule = splitRule, nodeSize = nodeSize, maxNodes = maxNodes, noOfClasses = noOfClasses)
+
+    val nextSplits = new java.util.PriorityQueue[TrainNode]()
 
     if (trainRoot.findBestSplit(decisionTree)) {
-      nextSplits.enqueue(trainRoot)
+      nextSplits.add(trainRoot)
     }
 
-    splitBestLeaf(0, maxNodes, nextSplits, decisionTree)
+    splitBestLeaf(1, maxNodes, nextSplits, decisionTree)
 
     decisionTree
   }
@@ -206,12 +228,22 @@ object DecisionTree {
   }
 
   @tailrec
-  private def splitBestLeaf(currentLeaves: Int, maxNodes: Int, nextSplits: mutable.PriorityQueue[TrainNode], decisionTree: DecisionTree): Boolean = {
+  private def splitBestLeaf(currentLeaves: Int,
+                            maxNodes: Int,
+                            nextSplits: java.util.PriorityQueue[TrainNode],
+                            decisionTree: DecisionTree)(implicit actorSystem: ActorSystem, timeout: Timeout): Boolean = {
+    /*println("currentLeaves --> " + currentLeaves)
+    println("maxNodes --> " + maxNodes)*/
     if (currentLeaves >= maxNodes) {
       true
     } else {
       try {
-        val node = nextSplits.dequeue()
+        val node = nextSplits.poll()
+        /*println("Node splitScore --> " + node.node.splitScore)
+        println("Node splitValue --> " + node.node.splitValue)
+        println("Node splitFeature --> " + node.node.splitFeature)
+        println("Node trueChildOutput --> " + node.node.trueChildOutput)
+        println("Node falseChildOutput --> " + node.node.falseChildOutput)*/
         node.split(Option(nextSplits), decisionTree)
       } catch {
         case _: NoSuchElementException => return true

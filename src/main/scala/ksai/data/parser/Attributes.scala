@@ -35,7 +35,7 @@ case class Delimited[A](
                          data: List[Array[Double]] = Nil,
                          target: List[A] = Nil) {
 
-  private def labelMap: Map[A, Int] = {
+  /*private */def labelMap: Map[A, Int] = {
     labels.zipWithIndex.map { case (l, index) => l -> index }.toMap
   }
 
