@@ -46,18 +46,8 @@ class SplitTask(trainingInstances: Array[Array[Double]],
         a
 
       case NUMERIC =>
-        val trueCount = new Array[Int](decisionTree.noOfClasses)
-        val prevX = Double.NaN
-        val prevY = -1
-
         decisionTree.order(j).fold(splitNode) { orderArray =>
           getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
-          //          val a = getSplitNodeForNumeric(splitNode, orderArray, prevX, prevY, j, trueCount, n, count, decisionTree, impurity)
-          /*println("splitFeature --> " + a.splitFeature)
-          println("splitValue --> " + a.splitValue)
-          println("splitScore --> " + a.splitScore)
-          println("trueChildOutput --> " + a.trueChildOutput)
-          println("falseChildOutput --> " + a.falseChildOutput)*/
         }
 
       case attributeType => throw new IllegalStateException("Unsupported Attribute type: " + attributeType)
@@ -104,103 +94,6 @@ class SplitTask(trainingInstances: Array[Array[Double]],
       }
     }
   }
-
-  /*@tailrec
-  private final def getSplitNodeForNumeric(
-                                            splitNode: Node,
-                                            orderArray: Array[Int],
-                                            prevX: Double,
-                                            prevY: Int,
-                                            j: Int,
-                                            trueCount: Array[Int],
-                                            n: Int,
-                                            count: Array[Int],
-                                            decisionTree: DecisionTree,
-                                            impurity: Double): Node = {
-    if (orderArray.isEmpty) {
-      splitNode
-    } else {
-      val index = orderArray.head
-      if (samples(index) > 0) {
-        if (prevX.isNaN || trainingInstances(index)(j) == prevX || labels(index) == prevY) {
-          trueCount(labels(index)) += samples(index)
-          getSplitNodeForNumeric(
-            splitNode,
-            orderArray.tail,
-            trainingInstances(index)(j),
-            labels(index),
-            j,
-            trueCount,
-            n,
-            count,
-            decisionTree,
-            impurity)
-        } else {
-
-          val tc = trueCount.sum
-          val fc = n - tc
-
-          if (tc < decisionTree.nodeSize || fc < decisionTree.nodeSize) {
-            trueCount(labels(index)) += samples(index)
-            getSplitNodeForNumeric(
-              splitNode,
-              orderArray.tail,
-              trainingInstances(index)(j),
-              labels(index),
-              j,
-              trueCount,
-              n,
-              count,
-              decisionTree,
-              impurity)
-          } else {
-            val falseCount = (0 until decisionTree.noOfClasses).map(q => count(q) - trueCount(q)).toArray
-
-            val trueLabel = trueCount.indexOf(trueCount.max)
-            val falseLabel = falseCount.indexOf(falseCount.max)
-
-            val gain =
-              impurity - tc.toDouble / n * decisionTree.impurity(trueCount, tc) - fc.toDouble / n * decisionTree.impurity(falseCount, fc)
-            /*println("trueCount --> " + trueCount.toList)*/
-
-            val newSplitNode = if (gain > splitNode.splitScore) {
-              Node(splitFeature = j,
-                splitValue = (trainingInstances(index)(j) + prevX) / 2,
-                splitScore = gain,
-                trueChildOutput = trueLabel,
-                falseChildOutput = falseLabel)
-            } else {
-              splitNode
-            }
-
-            trueCount(labels(index)) += samples(index)
-            getSplitNodeForNumeric(
-              newSplitNode,
-              orderArray.tail,
-              trainingInstances(index)(j),
-              labels(index),
-              j,
-              trueCount,
-              n,
-              count,
-              decisionTree,
-              impurity)
-          }
-        }
-      } else {
-        getSplitNodeForNumeric(splitNode,
-          orderArray.tail,
-          prevX,
-          prevY,
-          j,
-          trueCount,
-          n,
-          count,
-          decisionTree,
-          impurity)
-      }
-    }
-  }*/
 
   private final def getSplitNodeForNumeric(
                                             splitNode: Node,

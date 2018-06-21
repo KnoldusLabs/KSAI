@@ -8,7 +8,6 @@ import ksai.core.classification.decisiontree.SplitRule.SplitRule
 import ksai.core.classification.{Attribute, NUMERIC}
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 class DecisionTree(
                     trainingInstances: Array[Array[Double]],
@@ -46,9 +45,6 @@ class DecisionTree(
   }
 
   def predict(x: Array[Double]) = {
-    /*println("splitFeature --> " + root.splitFeature)
-    println("splitScore --> " + root.splitScore)
-    println("splitValue --> " + root.splitValue)*/
     root.predict(x, attributes)
   }
 }
@@ -175,19 +171,13 @@ object DecisionTree {
       }
     }(identity)
 
-    /*order.foreach(x => println(x.fold("None")(_.mkString(",")) + "\n"))*/
-
     val count = maybeSamples.fold {
       labels.groupBy(identity).mapValues(_.length).toSeq.sortBy(_._1).map(_._2).toArray
     } { samples =>
       labels.zip(samples).groupBy(_._1).mapValues(_.map(_._2)).mapValues(_.sum).toSeq.sortBy(_._1).map(_._2).toArray
     }
 
-    /*println("Count --> " + count.toList)*/
-
     val posteriori = uniqueLabels.map(uniqueLabel => count(uniqueLabel) / labels.length.toDouble)
-
-    /*println("Posteriori --> " + posteriori.toList)*/
 
     val root = Node(count.indexOf(count.max), Option(posteriori))
 
@@ -232,18 +222,11 @@ object DecisionTree {
                             maxNodes: Int,
                             nextSplits: java.util.PriorityQueue[TrainNode],
                             decisionTree: DecisionTree)(implicit actorSystem: ActorSystem, timeout: Timeout): Boolean = {
-    /*println("currentLeaves --> " + currentLeaves)
-    println("maxNodes --> " + maxNodes)*/
     if (currentLeaves >= maxNodes) {
       true
     } else {
       try {
         val node = nextSplits.poll()
-        /*println("Node splitScore --> " + node.node.splitScore)
-        println("Node splitValue --> " + node.node.splitValue)
-        println("Node splitFeature --> " + node.node.splitFeature)
-        println("Node trueChildOutput --> " + node.node.trueChildOutput)
-        println("Node falseChildOutput --> " + node.node.falseChildOutput)*/
         node.split(Option(nextSplits), decisionTree)
       } catch {
         case _: NoSuchElementException => return true
