@@ -10,6 +10,95 @@ case class FastPair(
                    ) {
 
   /**
+    * Add a point and find its nearest neighbor.
+    */
+  def add(point: Int) = {
+    findNeighbor(point)
+    index(point) = npoints + 1
+    points(index(point)) = point
+  }
+
+  /**
+    * Remove a point and update neighbors of points for which it had been nearest
+    */
+  def remove(point: Int) = {
+    copy(npoints = npoints - 1)
+    val q = index(point)
+    points(q) = points(npoints)
+    index(points(q)) = q
+
+    (0 until npoints).foreach { itr =>
+      if (neighbor(points(itr)) == point) {
+        findNeighbor(points(itr))
+      }
+    }
+  }
+
+  /**
+    * Find closest pair by scanning list of nearest neighbors
+    */
+  def getNearestPair(pair: Array[Int]): Double = {
+    if (npoints < 2) throw new IllegalStateException("FastPair: not enough points to form pair")
+
+    var calculatedDistance = distance(points(0))
+    var r = 0
+    (1 until npoints).foreach { itr =>
+      if (distance(points(itr)) < calculatedDistance) {
+        calculatedDistance = distance(points(itr))
+        r = itr
+      }
+    }
+
+    pair(0) = points(r)
+    pair(1) = neighbor(pair(0))
+
+    if (pair(0) > pair(1)) {
+      val temp = pair(0)
+      pair(0) = pair(1)
+      pair(1) = temp
+    }
+
+    calculatedDistance
+  }
+
+  /**
+    * All distances to point have changed, check if our structures are ok
+    * Note that although we completely recompute the neighbors of p,
+    * we don't explicitly call findNeighbor, since that would double
+    * the number of distance computations made by this routine.
+    * Also, like deletion, we don't change any other point's neighbor to p.
+    */
+  def updatePoint(p: Int): Unit = {
+    neighbor(p) = p // flag for not yet found any
+    distance(p) = Double.MaxValue
+    (0 until npoints).foreach { itr =>
+      val q = points(itr)
+      if (q != p) {
+        val d = findDistance(p, q)
+        if (d < distance(p)) {
+          distance(p) = d
+          neighbor(p) = q
+        }
+        if (neighbor(q) == p) if (d > distance(q)) findNeighbor(q) else distance(q) = d
+      }
+
+    }
+  }
+
+  def updateDistance(p: Int, q: Int) = {
+    val d = findDistance(p, q)
+    if (d < distance(p)) {
+      distance(p) = q
+      neighbor(p) = q
+    } else if (neighbor(p) == q && d > distance(p)) findNeighbor(p)
+
+    if (d < distance(q)) {
+      distance(q) = p
+      neighbor(q) = p
+    } else if (neighbor(q) == p && d > distance(q)) findNeighbor(q)
+  }
+
+  /**
     * Find nearest neighbor of a given point.
     */
   def findNeighbor(point: Int): Unit = {
@@ -25,14 +114,13 @@ case class FastPair(
       if (point == points(first)) first = 1
 
       neighbor(point) = points(first)
-      distance(point) = if (point > neighbor(point)) proximity(points(point))(points(neighbor(point)))
-      else proximity(points(neighbor(point)))(points(point))
+      distance(point) = findDistance(point, neighbor(point))
 
       // now test whether each other point is closer
       (first + 1 until npoints).foreach { itr =>
         val q = points(itr)
         if (q != point) {
-          val d = if (point > q) proximity(points(point))(points(q)) else proximity(points(q))(points(point))
+          val d = findDistance(point, q)
 
           if (d < distance(q)) {
             distance(point) = d
@@ -45,29 +133,14 @@ case class FastPair(
   }
 
   /**
-    *  Add a point and find its nearest neighbor.
+    * Returns the distance/dissimilarity between two clusters/objects, which
+    * are indexed by integers.
     */
-  def add(point: Int) = {
-    findNeighbor(point)
-    index(point) = npoints + 1
-    points(index(point)) = point
+  def findDistance(first: Int, second: Int): Double = {
+    if (first > second) proximity(first)(second)
+    else proximity(second)(first)
   }
 
-  /**
-    * Remove a point and update neighbors of points for which it had been nearest
-    */
-  def remove(point: Int) = {
-    copy(npoints = npoints - 1)
-    val q = index(point)
-    points(q) = points(npoints)
-    index(point(q)) = q
-
-    (0 until npoints).foreach{itr =>
-      if(neighbor(points(itr)) == point){
-        findNeighbor(points(itr))
-      }
-    }
-  }
 }
 
 object FastPair {
