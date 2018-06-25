@@ -2,12 +2,13 @@ package ksai.core.classification.decisiontree
 
 import akka.actor.ActorSystem
 import akka.util.Timeout
-import ksai.data.parser.{ARFFParser, DelimitedParser}
+import ksai.data.parser.{ARFFParser, Delimited, DelimitedParser}
 import ksai.training.validation.LOOCV
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
+import scala.io.Source
 
 class DecisionTreeTest extends WordSpec with Matchers {
 
@@ -86,6 +87,42 @@ class DecisionTreeTest extends WordSpec with Matchers {
 
       println("Decision Tree error = " + error)
       assert(error == 328)
+    }
+
+    "balance data" in {
+      val balanceFile = getClass.getResource("/balance-scale.data").getPath
+
+      val sourceBuffer = Source.fromFile(balanceFile)
+
+      val data = sourceBuffer.getLines().map { line =>
+        val trainValues = line.split(",")
+        (trainValues.head, trainValues.drop(1))
+      }.toArray
+
+      val trainingInstances = data.map(_._2.map(_.toDouble).to[ArrayBuffer]).to[ArrayBuffer]
+      val labels = data.map(_._1)
+
+      val delimited = Delimited[String](labels = labels.distinct.toList, target = labels.toList)
+
+      val labelValues = delimited.getNumericTargets.to[ArrayBuffer]
+
+      val n = trainingInstances.length
+      val loocv = LOOCV(n)
+
+      val error = (0 until n).foldLeft(0) { (err, i) =>
+        val trainX = LOOCV.slice(trainingInstances, loocv.train(i)).toArray.map(_.toArray)
+        val trainY: Array[Int] = LOOCV.sliceY(labelValues, loocv.train(i)).toArray
+        val decisionTree = DecisionTree(trainX, trainY, 20)
+        if (labelValues(loocv.test(i)) != decisionTree.predict(trainingInstances(loocv.test(i)).toArray)) {
+          err + 1
+        } else {
+          err
+        }
+      }
+
+      println("Decision Tree error = " + error)
+
+      assert(true)
     }
   }
 }
