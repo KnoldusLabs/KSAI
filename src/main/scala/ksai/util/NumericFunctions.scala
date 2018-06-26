@@ -137,7 +137,13 @@ object NumericFunctions {
     }
   }
 
-  def unitize1(x: DenseVector[Double]): Unit = {
+
+
+  def unitize1(x: Array[Double]): Unit = {
+    unitize1(DenseVector(x))
+  }
+
+    def unitize1(x: DenseVector[Double]): Unit = {
     val n = norm1(x)
 
     (0 to x.length -1).foreach{ index =>

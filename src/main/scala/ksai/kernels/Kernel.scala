@@ -1,8 +1,8 @@
 package ksai.kernels
 
 
-trait Kernel {
+trait Kernel[A] {
 
-  def k(x: Double, y: Double): Double
+  def k(x: A, y: A): Double
 
 }
