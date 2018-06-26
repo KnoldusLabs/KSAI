@@ -1,6 +1,6 @@
 package ksai.core.classification
 
-import ksai.data.parser.{ARFFParser, DelimitedParser}
+import ksai.data.parser.{ARFFParser, DelimitedParserRefactored}
 import ksai.training.validation.LOOCV
 import org.scalatest.{Matchers, WordSpec}
 
@@ -94,14 +94,14 @@ class LogisticRegressionTest extends WordSpec with Matchers{
       assert(error == 48)
     }
 
-    //TODO: Need to fix the parser for USPS/zip files
     "be able to test USPS" in {
       println("USPS")
-      pending
       val zipTrainingPath = getClass.getResource("/zip.train").getPath
       val zipTestPath = getClass.getResource("/zip.test").getPath
-      val trainData = DelimitedParser.parse(zipTrainingPath)
-      val testData = DelimitedParser.parse(zipTestPath)
+
+      val delimitedParserRefactored = new DelimitedParserRefactored(0)
+      val trainData = delimitedParserRefactored.parse(zipTrainingPath)
+      val testData = delimitedParserRefactored.parse(zipTestPath)
 
       val trainX = trainData.data.toArray
       val trainY = trainData.getNumericTargets.toArray
@@ -109,14 +109,14 @@ class LogisticRegressionTest extends WordSpec with Matchers{
       val testX = testData.data.toArray
       val testY = testData.getNumericTargets.toArray
 
-      val logit = LogisticRegression(trainX, trainY, 0.03, 1E-3, 1000)
+      val logit = LogisticRegression(trainX, trainY, 0.3, 1E-3, 1000)
 
       val error = testX.indices.foldLeft(0){ (err, i) =>
         if (logit.predict(testX(i)) != testY(i)) err + 1 else err
       }
 
-      println(f"Segment error rate = ${100.0 * error / testX.length}%.2f%%%n")
-      assert(error == 48)
+      println(f"USPS error rate = ${100.0 * error / testX.length}%.2f%%%n")
+      assert(error == 188)
     }
 
 

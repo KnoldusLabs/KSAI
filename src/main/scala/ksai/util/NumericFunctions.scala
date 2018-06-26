@@ -189,7 +189,8 @@ object NumericFunctions {
     y
   }
 
-  def lineSearch(multivariateFunction: MultivariateFunction, xOld: Array[Double], fOld: Double, g: Array[Double], p: Array[Double], x: Array[Double], stpMax: Double, k: Int): Double = {
+  def lineSearch(multivariateFunction: MultivariateFunction, xOld: Array[Double], fOld: Double,
+                 g: Array[Double], p: Array[Double], x: Array[Double], stpMax: Double): Double = {
     if (stpMax <= 0) {
       throw new IllegalArgumentException("Invalid upper bound of linear search step: " + stpMax)
     }
@@ -204,7 +205,8 @@ object NumericFunctions {
       indices.foreach(i => p(i) = p(i) * r)
     }
 
-    val slope = indices.foldLeft(0.0){(sum, i) => sum + g(i) * p(i)}
+    val slope = indices
+      .foldLeft(0.0){(sum, i) => sum + g(i) * p(i)}
 
     if (slope >= 0) {
       throw new IllegalArgumentException("Line Search: the search direction is not a descent direction, which may be caused by roundOff problem.")
@@ -241,7 +243,7 @@ object NumericFunctions {
     } else{
       // Backtrack
       val tmpalam = if (alam == 1.0) {
-        // First time
+        // First time//TODO: Worked till here
         -slope / (2.0 * (f - fOld - slope))
       } else{
         val rhs1 = f - fOld - alam * slope
@@ -327,20 +329,21 @@ object NumericFunctions {
 
     println(f"L-BFGS: initial function value: $fOld%.5g")
 
-    val sum = (0 until n).map{i =>
+    val sum = (0 until n).foldLeft(0.0){(s, i) =>
       xi(i) = -g(i)
-      x(i) * x(i)
-    }.sum
+      s + x(i) * x(i)
+    }
 
     // Initial line search direction.
     // Upper limit for line search step.
     val stpMax = STPMX * Math.max(Math.sqrt(sum), n)
 
     val (_, complete, res) = (1 to maxIteration).foldLeft((0, false, fOld)){
-      case ((k, done, f), _) if done=> (k, done, f)
+      case ((k, done, f), _) if done => (k, done, f)
       case ((k, _, lastF), iter) =>
 
-        lineSearch(func, x, lastF, g, xi, xNew, stpMax, iter)
+
+        lineSearch(func, x, lastF, g, xi, xNew, stpMax)
         val f = func.f(xNew, gNew)
         val indices = x.indices
 
@@ -453,7 +456,7 @@ object NumericFunctions {
       case ((done, f), _) if done=> (done, f)
       case ((_, lastF), iter) =>
 
-        val f = lineSearch(func, x, lastF, g, xi, xNew, stpMax, iter)
+        val f = lineSearch(func, x, lastF, g, xi, xNew, stpMax)
 
         if (iter % 10 == 0)
           println(f"BFGS: the function value after $iter%3d iterations: $f%.5g")
@@ -495,7 +498,7 @@ object NumericFunctions {
             indices.foreach{i =>
               hdg(i) = 0
               indices.foreach{j =>
-                hdg(i) = hdg(i) + hessin(i)(j) * dg(j)
+                hdg(i) = hdg(i) + (hessin(i)(j) * dg(j))
               }
             }
 
@@ -519,7 +522,7 @@ object NumericFunctions {
               indices.foreach(i => dg(i) = fac * xi(i) - fad * hdg(i))
 
               for (i <- 0 until n; j <- i until n){
-                hessin(i)(j) = hessin(i)(j) + fac * xi(i) * xi(j) - fad * hdg(i) * hdg(j) + faE * dg(i) * dg(j)
+                hessin(i)(j) = hessin(i)(j) + (fac * xi(i) * xi(j) - fad * hdg(i) * hdg(j) + faE * dg(i) * dg(j))
                 hessin(j)(i) = hessin(i)(j)
               }
             }
