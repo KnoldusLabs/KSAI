@@ -12,16 +12,6 @@ class NumericFunctionsTest extends WordSpec with Matchers {
       println("L-BFGS")
 
       val func = new DifferentiableMultivariateFunction {
-        /*override def f(x: Array[Double], gradient: Array[Double]): Double = {
-          (1 to x.length).filter(_ % 2 != 0).foldLeft(0.0){(sum, j) =>
-            val t1 = 1E0 - x(j - 1)
-            val t2 = 1E1 * (x(j) - x(j - 1) * x(j - 1))
-            gradient(j + 1 - 1) = 2E1 * t2
-            gradient(j - 1) = -2E0 * (x(j - 1) * gradient(j - 1 + 1) + t1)
-            sum + t1 * t1 + t2 * t2
-          }
-        }*/
-
         override def f(x: Array[Double]): Double = {
           (1 to x.length).filter(_ % 2 != 0).foldLeft(0.0){(sum, j) =>
             val t1 = 1E0 - x(j -1)
@@ -54,19 +44,10 @@ class NumericFunctionsTest extends WordSpec with Matchers {
       result shouldEqual 3.2760183604E-14 +- 1E-15
     }
 
-    "be able to test minimisation with 4 args (BFGS)" in {
+    "be able to test minimization with 4 args (BFGS)" in {
       println("BFGS")
-      val func = new DifferentiableMultivariateFunction {
-        /*override def f(x: Array[Double], gradient: Array[Double]): Double = {
-          (1 to x.length).filter(_ % 2 != 0).foldLeft(0.0){(sum, j) =>
-            val t1 = 1E0 - x(j - 1)
-            val t2 = 1E1 * (x(j) - x(j - 1) * x(j - 1))
-            gradient(j + 1 - 1) = 2E1 * t2
-            gradient(j - 1) = -2E0 * (x(j - 1) * gradient(j - 1 + 1) + t1)
-            sum + t1 * t1 + t2 * t2
-          }
-        }*/
 
+      val func = new DifferentiableMultivariateFunction {
         override def f(x: Array[Double]): Double = {
           (1 to x.length).filter(_ % 2 != 0).foldLeft(0.0){(sum, j) =>
             val t1 = 1E0 - x(j -1)

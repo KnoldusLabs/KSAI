@@ -178,16 +178,9 @@ object LogisticRegression {
         case _: Throwable => NumericFunctions.min(func, w, tolerance, maxIterations)
       }
 
-      val weights = w
-
-      println(weights.toList)
-
       val W = new Array[Array[Double]](labels.length).map(_ => Array.fill(p + 1)(0.0))
 
-
-      val k = labels.length
-
-      (0 until k).foreach{i =>
+      labels.indices.foreach{ i =>
         W(i) = w.slice(i * (p + 1), (i * (p + 1)) + (p + 1))
       }
 
@@ -252,24 +245,23 @@ object LogisticRegression {
   class BinaryObjectiveFunction(trainingInstances: Array[Array[Double]],
                                 responses: Array[Int],
                                 lambda: Double = 0.0,
-                                fTask: ArrayBuffer[LogisticRegression.BinaryObjectiveFunction.FTask],
-                                gTask: ArrayBuffer[LogisticRegression.BinaryObjectiveFunction.GTask]
+                                fTask: List[LogisticRegression.BinaryObjectiveFunction.FTask],
+                                gTask: List[LogisticRegression.BinaryObjectiveFunction.GTask]
                                ) extends DifferentiableMultivariateFunction {
 
     def f(w: Array[Double]): Double = {
       val p = w.length - 1
 
-      val value = (fTask.toList match {
+      val f = (fTask match {
         case Nil => Future {
           Double.NaN
         }
         case _ =>
-          fTask.map(_.copy(w = w))
-          Future {
-            fTask.map(_.call)
-          }.map {
-            _.sum
-          }.recover {
+          val futures = fTask.map(_.copy(w = w)).map(ft => Future(ft.call))
+
+          (for(list <-Future.sequence(futures)) yield {
+            list.sum
+          }).recover {
             case _ => Double.NaN
           }
       }).map { res =>
@@ -284,15 +276,14 @@ object LogisticRegression {
           res
         }
 
-        val f = if (lambda != 0.0) {
+        if (lambda != 0.0) {
           val w2 = (0 until p).foldLeft(0.0) { (sum, i) => sum + w(i) * w(i) }
           tempF + 0.5 * lambda * w2
         } else {
           tempF
         }
-        f
       }
-      Await.result(value, Duration.Inf)
+      Await.result(f, Duration.Inf)
     }
 
     /**
@@ -301,20 +292,18 @@ object LogisticRegression {
     override def f(w: Array[Double], g: Array[Double]): Double = {
       val p = w.length - 1
       util.Arrays.fill(g, 0.0)
-      val value = (gTask.toList match {
-        case Nil => Future {
-          Double.NaN
-        }
+
+      val f = (gTask match {
+        case Nil => Future (Double.NaN)
         case _ =>
-          gTask.map(_.copy(w = w))
-          Future {
-            gTask.map(_.call)
-          }.map {
-            _.map { gi =>
+          val futures = gTask.map(_.copy(w = w)).map(gt => Future(gt.call))
+
+          (for(list <- Future.sequence(futures)) yield {
+            list.map { gi =>
               w.indices.foreach(i => g(i) = g(i) + gi(i))
               gi(w.length)
             }.sum
-          }.recover {
+          }).recover {
             case ex =>
               println(s"Failed to train Logistic Regression on multi -core $ex")
               Double.NaN
@@ -334,16 +323,15 @@ object LogisticRegression {
           res
         }
 
-        val f = if (lambda != 0.0) {
+        if (lambda != 0.0) {
           val w2 = (0 until p).foldLeft(0.0) { (sum, i) => sum + w(i) * w(i) }
           (0 until p).foreach(j => g(j) = g(j) + lambda * w(j))
           tempF + 0.5 * lambda * w2
         } else {
           tempF
         }
-        f
       }
-      Await.result(value, Duration.Inf)
+      Await.result(f, Duration.Inf)
     }
   }
 
@@ -366,7 +354,7 @@ object LogisticRegression {
         fTask.append(FTask(lStart, instanceCount, trainingInstances, responses))
         gTask.append(GTask(lStart, instanceCount, trainingInstances, responses))
       }
-      new BinaryObjectiveFunction(trainingInstances, responses, lambda, fTask, gTask)
+      new BinaryObjectiveFunction(trainingInstances, responses, lambda, fTask.toList, gTask.toList)
     }
 
     case class FTask(start: Int, end: Int, x: Array[Array[Double]], y: Array[Int], w: Array[Double] = Array.empty[Double]) {
@@ -410,111 +398,113 @@ object LogisticRegression {
   class MultiClassObjectiveFunction(trainingInstances: Array[Array[Double]],
                                     responses: Array[Int],
                                     lambda: Double = 0.0,
-                                    fTask: ArrayBuffer[MultiClassObjectiveFunction.FTask],
-                                    gTask: ArrayBuffer[MultiClassObjectiveFunction.GTask],
+                                    fTask: List[MultiClassObjectiveFunction.FTask],
+                                    gTask: List[MultiClassObjectiveFunction.GTask],
                                     numClasses: Int //k
                                    ) extends DifferentiableMultivariateFunction {
 
     def f(w: Array[Double], g: Array[Double]): Double = {
       val p = trainingInstances(0).length
       val prob = new Array[Double](numClasses)
-
       util.Arrays.fill(g, 0.0)
-      val value = gTask.toList match {
-        case Nil => Double.NaN
+
+      val f = (gTask match {
+        case Nil => Future(Double.NaN)
         case _ =>
-          try {
-            gTask.map(_.copy(w = w)).map(ft => Future(ft.call)).map(ft => Await.result(ft, Duration.Inf))
-              .foldLeft(0.0) { (sum, gi) =>
+          val futureList = Future.sequence(gTask.map(_.copy(w = w)).map(ft => Future(ft.call)))
+          (for(list <- futureList) yield {
+            list.foldLeft(0.0){(sum, gi) =>
               w.indices.foreach(i => g(i) = g(i) + gi(i))
               sum + gi(w.length)
             }
-          } catch {
-            case _: Exception => Double.NaN
+          }).recover{
+            case ex =>
+              println(s"Failed to train Logistic Regression on multi -core $ex")
+              Double.NaN
           }
-      }
+      }).map{value =>
+        val tempF = if(value.equals(Double.NaN)) {
+          val n = trainingInstances.length
+          (0 until n).foldLeft(0.0) { (sum, i) =>
+            (0 until numClasses).foreach(j =>
+              prob(j) = LogisticRegression.dot(trainingInstances(i), w, j * (p + 1))
+            )
+            LogisticRegression.softMax(prob)
 
-      val tempF = if(value.equals(Double.NaN)) {
-        val n = trainingInstances.length
-        (0 until n).foldLeft(0.0) { (sum, i) =>
-          (0 until numClasses).foreach(j =>
-            prob(j) = LogisticRegression.dot(trainingInstances(i), w, j * (p + 1))
-          )
-          LogisticRegression.softMax(prob)
+            (0 until numClasses).foreach { j =>
+              val yi = (if (responses(i) == j) 1.0 else 0.0) - prob(j)
 
-          (0 until numClasses).foreach { j =>
-            val yi = (if (responses(i) == j) 1.0 else 0.0) - prob(j)
+              val pos = j * (p + 1)
+              (0 until p).foreach(l => g(pos + l) = g(pos + l) - yi * trainingInstances(i)(l))
+              g(j * (p + 1) + p) = g(j * (p + 1) + p) - yi
+            }
 
-            val pos = j * (p + 1)
-            (0 until p).foreach(l => g(pos + l) = g(pos + l) - yi * trainingInstances(i)(l))
-            g(j * (p + 1) + p) = g(j * (p + 1) + p) - yi
+            sum - NumericFunctions.log(prob(responses(i)))
           }
-
-          sum - NumericFunctions.log(prob(responses(i)))
-        }
-      } else {
-        value
-      }
-
-      val f = if (lambda != 0.0) {
-
-        val w2 = (0 until numClasses).foldLeft(0.0){(sum, i) =>
-          (0 until p).foldLeft(sum){(s, j) =>
-            val pos = i * (p + 1) + j
-            g(pos) = g(pos) + lambda * w(pos)
-            s + w(pos) * w(pos)
-          }
+        } else {
+          value
         }
 
-        tempF + 0.5 * lambda * w2
-      } else {
-        tempF
+        if (lambda != 0.0) {
+          val w2 = (0 until numClasses).foldLeft(0.0){(sum, i) =>
+            (0 until p).foldLeft(sum){(s, j) =>
+              val pos = i * (p + 1) + j
+              g(pos) = g(pos) + (lambda * w(pos))
+              s + w(pos) * w(pos)
+            }
+          }
+
+          tempF + 0.5 * lambda * w2
+        } else {
+          tempF
+        }
       }
-      f
+
+      Await.result(f, Duration.Inf)
     }
 
     override def f(w: Array[Double]): Double = {
       val p = trainingInstances.head.length
       val prob = new Array[Double](numClasses)
-      val value = fTask.toList match {
-        case Nil => Double.NaN
+
+      val f = (fTask match {
+        case Nil => Future(Double.NaN)
         case _ =>
-          val res = fTask.map(_.copy(w = w)).map(ft => Future(ft.call)).map(ft => Await.result(ft, Duration.Inf))
-          val out = res.foldLeft(0.0){(sum, value) => sum + value}
-          out
+          val futures = fTask.map(_.copy(w = w)).map(ft => Future(ft.call))
+          (for(list <- Future.sequence(futures)) yield {
+            list.foldLeft(0.0){(sum, value) => sum + value}
+          }).recover{
+            case ex =>
+              println(s"Failed to train Logistic Regression on multi -core $ex")
+              Double.NaN
+          }
+      }).map{value =>
+        val tempF = if (value.equals(Double.NaN)) {
+          val n = trainingInstances.length
+          (0 until n).foldLeft(0.0) { (sum, i) =>
+            (0 until numClasses).foreach(j =>
+              prob(j) = LogisticRegression.dot(trainingInstances(i), w, j * (p + 1))
+            )
+            LogisticRegression.softMax(prob)
+            sum - NumericFunctions.log(prob(responses(i)))
+          }
+        } else {
+          value
+        }
+
+        if (lambda != 0.0) {
+          val w2 = (0 until numClasses).foldLeft(0.0) { (sum, i) =>
+            (0 until p).foldLeft(sum){(s, j) =>
+              s + NumericFunctions.sqr(w(i * (p + 1) + j))
+            }
+          }
+          tempF + 0.5 * lambda * w2
+        } else {
+          tempF
+        }
       }
 
-      val tempF = if (value.equals(Double.NaN)) {
-        val n = trainingInstances.length
-        (0 until n).foldLeft(0.0) { (sum, i) =>
-          (0 until numClasses).foreach(j =>
-            prob(j) = LogisticRegression.dot(trainingInstances(i), w, j * (p + 1))
-          )
-          LogisticRegression.softMax(prob)
-          sum - NumericFunctions.log(prob(responses(i)))
-        }
-      } else {
-        value
-      }
-
-      val f = if (lambda != 0.0) {
-        //TODO: remove var
-        var w2 = 0.0
-        for(i <- 0 until numClasses){
-          for(j <- 0 until p){
-            w2 = w2 + (w(i * (p + 1) + j) * w(i * (p + 1) + j))
-          }
-        }
-        /*val w2 = (0 until numClasses).foldLeft(0.0) { (sum, i) =>
-          sum + (0 until p).foldLeft(0.0){(s, j) =>
-            s + NumericFunctions.sqr(w(i * (p + 1) + j))
-          }
-        }*/
-        tempF + 0.5 * lambda * w2
-      } else {
-        tempF
-      }
-      f
+      Await.result(f, Duration.Inf)
     }
   }
 
@@ -540,7 +530,7 @@ object LogisticRegression {
         fTask.append(FTask(lStart, instanceCount, trainingInstances, responses, numClasses))
         gTask.append(GTask(lStart, instanceCount, trainingInstances, responses, numClasses))
       }
-      new MultiClassObjectiveFunction(trainingInstances, responses, lambda, fTask, gTask, numClasses)
+      new MultiClassObjectiveFunction(trainingInstances, responses, lambda, fTask.toList, gTask.toList, numClasses)
     }
 
     case class FTask(start: Int, end: Int, x: Array[Array[Double]], y: Array[Int], numClasses: Int /*k*/ , w: Array[Double] = Array.empty[Double]) {
@@ -584,7 +574,6 @@ object LogisticRegression {
         g
       }
     }
-
   }
 
 }

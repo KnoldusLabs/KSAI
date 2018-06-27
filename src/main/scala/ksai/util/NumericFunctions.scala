@@ -243,7 +243,6 @@ object NumericFunctions {
     } else{
       // Backtrack
       val tmpalam = if (alam == 1.0) {
-        // First time//TODO: Worked till here
         -slope / (2.0 * (f - fOld - slope))
       } else{
         val rhs1 = f - fOld - alam * slope
@@ -340,7 +339,7 @@ object NumericFunctions {
 
     val (_, complete, res) = (1 to maxIteration).foldLeft((0, false, fOld)){
       case ((k, done, f), _) if done => (k, done, f)
-      case ((k, _, lastF), iter) =>
+      case ((k, _, lastF), iteration) =>
 
 
         lineSearch(func, x, lastF, g, xi, xNew, stpMax)
@@ -360,7 +359,7 @@ object NumericFunctions {
         }
 
         if (test < TOLX) {
-          println(f"L-BFGS: the function value after $iter%3d iterations: $f%.5g")
+          println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
           (k, true, f)
         } else {
           val den = Math.max(f, 1.0)
@@ -371,10 +370,10 @@ object NumericFunctions {
           }
 
           if(test2 < gTol) {
-            println(f"L-BFGS: the function value after $iter%3d iterations: $f%.5g")
+            println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
             (k, true, f)
           } else {
-            if (iter % 10 == 0) println(f"L-BFGS: the function value after $iter%3d iterations: $f%.5g")
+            if (iteration % 10 == 0) println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
 
             val ys = dot(y(k), s(k))
             val yy = dot(y(k), y(k))
@@ -382,7 +381,7 @@ object NumericFunctions {
             rho(k) = 1.0 / ys
 
             indices.foreach(i => xi(i) = -g(i))
-            val bound = if(iter > m) m else iter
+            val bound = if(iteration > m) m else iteration
 
             val cp = (0 until bound).foldLeft(k){(old, i) =>
               a(old) = rho(old) * dot(s(old), xi)
@@ -454,12 +453,12 @@ object NumericFunctions {
 
     val (complete, res) = (1 to maxIteration).foldLeft((false, fOld)){
       case ((done, f), _) if done=> (done, f)
-      case ((_, lastF), iter) =>
+      case ((_, lastF), iteration) =>
 
         val f = lineSearch(func, x, lastF, g, xi, xNew, stpMax)
 
-        if (iter % 10 == 0)
-          println(f"BFGS: the function value after $iter%3d iterations: $f%.5g")
+        if (iteration % 10 == 0)
+          println(f"BFGS: the function value after $iteration%3d iterations: $f%.5g")
 
         (0 until n).foreach{i =>
           xi(i) = xNew(i) - x(i)
@@ -474,7 +473,7 @@ object NumericFunctions {
         }
 
         if (test < TOLX) {
-          println(f"BFGS: the function value after $iter%3d iterations: $f%.5g")
+          println(f"BFGS: the function value after $iteration%3d iterations: $f%.5g")
           (true, f)
         } else {
 
@@ -489,7 +488,7 @@ object NumericFunctions {
           }
 
           if(test2 < gTol) {
-            println(f"BFGS: the function value after $iter%3d iterations: $f%.5g")
+            println(f"BFGS: the function value after $iteration%3d iterations: $f%.5g")
             (true, f)
           } else {
 
