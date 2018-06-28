@@ -1,3 +1,16 @@
 package ksai.core.classification
 
-case class ClassifierTrainer(attribute: Array[Attribute])
+import breeze.linalg.DenseVector
+
+/**
+  * Abstract classifier trainer.
+  * 
+  * [T] the type of input object.
+  */
+trait ClassifierTrainer[T] {
+
+  def attributes: DenseVector[Attribute]
+
+  def train(x: DenseVector[T], y: DenseVector[Int]): Classifier[T]
+
+}

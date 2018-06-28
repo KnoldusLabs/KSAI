@@ -1,5 +1,6 @@
 package ksai.training.validation
 
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 
 //Leave-one-out cross validation
@@ -50,6 +51,13 @@ object LOOCV{
       x += data(indices(index))
     }
     x
+  }
+
+  /**Generic but need to convert to required collection explicitly as it returns an ArrayMap*/
+  def slice[T](data: Array[T], indices: Array[Int]): mutable.ArraySeq[T] = {
+    indices.map { itr =>
+      data(itr)
+    }
   }
 
 }
