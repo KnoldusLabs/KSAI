@@ -16,7 +16,7 @@ case object ONE_VS_ONE extends MultiClass
 
 case object ONE_VS_ALL extends MultiClass
 
-case class SupportVectorMachine[A](
+case class SupportVectorMachine[A: ClassTag](
                                     kernel: Kernel[A],
                                     k: Int,
                                     svm: Option[LASVM[A]] = None,
@@ -27,7 +27,10 @@ case class SupportVectorMachine[A](
                                     tol: Double = 1E-3,
                                     TAU: Double = 1E-12
                                   ) {
-  def learn(x: A, y: Int, weight: Double = 1.0)(implicit kernel: Kernel[A]): SupportVectorMachine[A] = {
+  def learn(x: A, y: Int): SupportVectorMachine[A] = {
+    learn(x, y, 1.0)(kernel)
+  }
+  def learn(x: A, y: Int, weight: Double)(implicit kernel: Kernel[A]): SupportVectorMachine[A] = {
     if (y < 0 || y >= k) {
       throw new IllegalArgumentException("Invalid label")
     }
@@ -77,12 +80,16 @@ case class SupportVectorMachine[A](
     }
   }
 
+
+  def learn(x: Array[A], y: Array[Int]): Future[SupportVectorMachine[A]] = {
+    learn(x, y, Array.empty[Double])
+  }
   def learn(x: Array[A], y: Array[Int], weight: Array[Double]): Future[SupportVectorMachine[A]] = {
     if (x.length != y.length) {
       throw new IllegalArgumentException((s"The sizes of X and Y don't match: ${x.length} != ${y.length}"))
     }
 
-    if (weight != null && x.length != weight.length) {
+    if (weight.nonEmpty && x.length != weight.length) {
       throw new IllegalArgumentException((s"The sizes of X and instance weight don't match: ${x.length} != ${weight.length}"))
     }
 
@@ -104,16 +111,15 @@ case class SupportVectorMachine[A](
       }
 
       if (weight.isEmpty) {
-        Future.successful(this.copy(svm = svm.map(vm => LASVM.learn[A](x, yi, Array.empty)(kernel, vm, p, TAU, tol))))
+        Future.successful(this.copy(svm = svm.map(vm => new LASVMInstance().learn[A](x, yi, Array.empty)(kernel, vm, p, TAU, tol))))
       } else {
-        Future.successful(this.copy(svm = svm.map(vm => LASVM.learn[A](x, yi, weight)(kernel, vm, p, TAU, tol))))
+        Future.successful(this.copy(svm = svm.map(vm => new LASVMInstance().learn[A](x, yi, weight)(kernel, vm, p, TAU, tol))))
       }
     } else {
 
       strategy match {
         case ONE_VS_ALL =>
-          //        List < TrainingTask > tasks = new ArrayList <> (k)
-
+          var testCount = 0
           val tasks = (0 until k).map { index =>
 
             val yi = new Array[Int](y.length)
@@ -124,7 +130,7 @@ case class SupportVectorMachine[A](
               } else {
                 yi(lIndex) = -1
               }
-
+              testCount = testCount + 1
               if (wi.nonEmpty) {
                 w(lIndex) = wi(y(lIndex))
                 if (weight.nonEmpty) {
@@ -136,7 +142,10 @@ case class SupportVectorMachine[A](
             TrainingTask(svms(index), x, yi, w).call(learningPromise)(kernel, svms(index), p, TAU, tol)
           }
 
-          Future.sequence(tasks).map(vms => this.copy(svms = vms.toList))
+          Future.sequence(tasks).map(vms => this.copy(svms = vms.toList)).recover{
+            case e: Exception => e.printStackTrace()
+              throw e
+          }
 
         case _ => {
           var m = 0
@@ -150,7 +159,7 @@ case class SupportVectorMachine[A](
                 }
               }
 
-              val xij = Array.fill[A](n) //(T[]) java.lang.reflect.Array.newInstance(x.getClass().getComponentType(), n)
+              val xij = new Array[A](n) //(T[]) java.lang.reflect.Array.newInstance(x.getClass().getComponentType(), n)
 
               val yij = new Array[Int](n)
               val wij = if (weight.isEmpty) Array[Double]() else new Array[Double](n)
@@ -399,11 +408,11 @@ case class SupportVectorMachine[A](
 
 object SupportVectorMachine {
 
-  def apply[A](kernel: Kernel[A], C: Double): SupportVectorMachine[A] = {
+  def apply[A: ClassTag](kernel: Kernel[A], C: Double): SupportVectorMachine[A] = {
     SupportVectorMachine(kernel, C, C)
   }
 
-  def apply[A](kernel: Kernel[A], Cp: Double, Cn: Double): SupportVectorMachine[A] = {
+  def apply[A: ClassTag](kernel: Kernel[A], Cp: Double, Cn: Double): SupportVectorMachine[A] = {
     if (Cp < 0.0) {
       throw new IllegalArgumentException("Invalid postive instance soft margin penalty: " + Cp)
     }
@@ -413,7 +422,7 @@ object SupportVectorMachine {
     new SupportVectorMachine[A](kernel, 2, Some(new LASVM[A](Cp, Cn)))
   }
 
-  def apply[A](kernel: Kernel[A], C: Double, k: Int, strategy: MultiClass): SupportVectorMachine[A] = {
+  def apply[A: ClassTag](kernel: Kernel[A], C: Double, k: Int, strategy: MultiClass): SupportVectorMachine[A] = {
     if (C < 0.0) {
       throw new IllegalArgumentException("Invalid soft margin penalty: " + C)
     }
@@ -439,11 +448,11 @@ object SupportVectorMachine {
     new SupportVectorMachine(kernel, k, None, 0, lasvms, strategy)
   }
 
-  def apply[A](kernel: Kernel[A], C: Double, weight: Array[Double], strategy: MultiClass, tol: Double): SupportVectorMachine[A] = {
+  def apply[A: ClassTag](kernel: Kernel[A], C: Double, weight: Array[Double], strategy: MultiClass, tol: Double): SupportVectorMachine[A] = {
     SupportVectorMachine(kernel, C, weight, strategy).copy(tol = tol)
   }
 
-  def apply[A](kernel: Kernel[A], C: Double, weight: Array[Double], strategy: MultiClass): SupportVectorMachine[A] = {
+  def apply[A: ClassTag](kernel: Kernel[A], C: Double, weight: Array[Double], strategy: MultiClass): SupportVectorMachine[A] = {
     if (C < 0.0) {
       throw new IllegalArgumentException("Invalid soft margin penalty: " + C)
     }
@@ -486,7 +495,7 @@ case class TrainingTask[A](
   def call(learningPromise: Promise[LASVM[A]])(kernel: Kernel[A], svm: LASVM[A], p: Int = 0,
                                                TAU: Double, tol: Double = 1E-3): Future[LASVM[A]] = {
     Future {
-      val result = LASVM.learn[A](x, y, weight)(kernel, svm, p, TAU, tol)
+      val result = new LASVMInstance().learn[A](x, y, weight)(kernel, svm, p, TAU, tol)
       learningPromise.success(result)
     }
     learningPromise.future
@@ -854,7 +863,9 @@ case class LASVM[A](
 
 }
 
-object LASVM {
+object LASVM extends LASVMInstance
+
+class LASVMInstance {
 
   def learn[A](x: Array[A], y: Array[Int], weight: Array[Double])(kernel: Kernel[A], svm: LASVM[A], p: Int = 0,
                                                                   TAU: Double, tol: Double = 1E-3): LASVM[A] = {
@@ -884,7 +895,8 @@ object LASVM {
     // instances as initial support vectors.
     val n: Int = x.length
     var i = 0
-    while ((c1 < 5 || c2 < 5 || i < n)) {
+    var ifAllTrue = true
+    while (ifAllTrue) {
       if (y(i) == 1 && c1 < 5) {
         if (weight.isEmpty) {
           val (resLasvm, _) = process(x(i), y(i))(kernel, lasvm, TAU)
@@ -907,8 +919,13 @@ object LASVM {
         c2 = c2 + 1
       }
       i = i + 1
+      if(c1 >=5 && c2 >=5){
+        ifAllTrue = false
+      }
+      if(i >= n){
+        ifAllTrue = false
+      }
     }
-
     // train SVM in a stochastic order.
     val index = Rand.permutation(n).get().toArray
     for (i <- 0 until n) {
@@ -919,7 +936,6 @@ object LASVM {
         val (resLasvm, _) = process(x(index(i)), y(index(i)), weight(index(i)))(kernel, lasvm, TAU)
         lasvm = resLasvm
       }
-
       do {
         val (reprocessedLASVM, _) = reprocess(tol)(lasvm, kernel, TAU) // at least one call to reprocess
         lasvm = minmax(reprocessedLASVM)
@@ -986,29 +1002,29 @@ object LASVM {
       if (!resultBoolean) {
         (minMaxLavsm, resultBoolean)
       } else {
+
+
         val (cmin: Double, cmax: Double) = if (y > 0) {
-          (0, weight * minMaxLavsm.Cp)
+          (0.0, weight * minMaxLavsm.Cp)
         } else {
-          (-weight * minMaxLavsm.Cn, 0)
+          (-weight * minMaxLavsm.Cn, 0.0)
         }
         val sv = new SupportVector(x, y, 0.0, gradient, cmin, cmax, kernel.k(x, x), kcache)
         val i = minMaxLavsm.supportVectors.length
-        for (j <- 0 until minMaxLavsm.supportVectors.length) {
-          minMaxLavsm.supportVectors.map(_.map(_.kcache :+ kcache(j)))
+
+
+        val minMaxLasvm1 = (0 until minMaxLavsm.supportVectors.length).foldLeft(minMaxLavsm){
+          case (res, j) =>
+            res.copy(supportVectors =  res.supportVectors.map(_.map(svk => svk.copy(kcache = svk.kcache :+ kcache(j)))))
         }
-        var j = 0
-        minMaxLavsm.supportVectors.foreach {
-          case Some(v) => v.kcache :+ kcache(j)
-            j = j + 1
-          case _ => j = j + 1
-        }
+
         sv.kcache += sv.k
-        minMaxLavsm.supportVectors :+ Some(sv)
+        val minMaxLasvm2 = minMaxLasvm1.copy(supportVectors = minMaxLasvm1.supportVectors :+ Some(sv))
 
         val (smoLASVM, _) = if (y > 0) {
-          smo(None, Some(sv), 0.0)(minMaxLavsm, kernel, TAU)
+          smo(None, Some(sv), 0.0)(minMaxLasvm2, kernel, TAU)
         } else {
-          smo(Some(sv), None, 0.0)
+          smo(Some(sv), None, 0.0)(minMaxLasvm2, kernel, TAU)
         }
         (smoLASVM.copy(minmaxflag = false), true)
       }
