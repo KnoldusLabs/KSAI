@@ -41,9 +41,7 @@ class SplitTask(trainingInstances: Array[Array[Double]],
           }
         }
 
-        val a = getSplitNodeForNominal(0, m, count, impurity, trueCount, n, decisionTree, splitNode, j)
-        println("Nominal Split Node Output --> " + a.output)
-        a
+        getSplitNodeForNominal(0, m, count, impurity, trueCount, n, decisionTree, splitNode, j)
 
       case NUMERIC =>
         decisionTree.order(j).fold(splitNode) { orderArray =>
@@ -129,7 +127,6 @@ class SplitTask(trainingInstances: Array[Array[Double]],
 
             val gain =
               impurity - tc.toDouble / n * decisionTree.impurity(trueCount, tc) - fc.toDouble / n * decisionTree.impurity(falseCount, fc)
-            /*println("trueCount --> " + trueCount.toList)*/
 
             if (gain > splitNode.splitScore) {
               splitNode.splitFeature = j
