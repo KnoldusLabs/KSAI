@@ -17,11 +17,11 @@ class DecisionTreeTest extends WordSpec with Matchers {
 
   "Decision Tree" should {
 
-    /*"weather" in {
-      val weatherFile = getClass.getResource("/weather.arff").getPath
-      val weather = ARFFParser.parse(weatherFile)
-      val x = weather.data.toArray.map(_.to[ArrayBuffer]).to[ArrayBuffer]
-      val y = weather.getNumericTargets.to[ArrayBuffer]
+    "should test iris file" in {
+      val irisFile = getClass.getResource("/iris.arff").getPath
+      val iris = ARFFParser.parse(irisFile)
+      val x = iris.data.toArray.map(_.to[ArrayBuffer]).to[ArrayBuffer]
+      val y = iris.getNumericTargets.to[ArrayBuffer]
 
       val n = x.length
 
@@ -40,31 +40,6 @@ class DecisionTreeTest extends WordSpec with Matchers {
 
       println("Decision Tree error = " + error)
       assert(error == 5)
-    }*/
-
-    "be testable" in {
-      val weatherFile = getClass.getResource("/iris.arff").getPath
-      val weather = ARFFParser.parse(weatherFile)
-      val x = weather.data.toArray.map(_.to[ArrayBuffer]).to[ArrayBuffer]
-      val y = weather.getNumericTargets.to[ArrayBuffer]
-
-      val n = x.length
-
-      val loocv = LOOCV(n)
-
-      val error = (0 until n).foldLeft(0) { (err, i) =>
-        val trainX = LOOCV.slice(x, loocv.train(i)).toArray.map(_.toArray)
-        val trainY: Array[Int] = LOOCV.sliceY(y, loocv.train(i)).toArray
-        val decisionTree = DecisionTree(trainX, trainY, 4)
-        if (y(loocv.test(i)) != decisionTree.predict(x(loocv.test(i)).toArray)) {
-          err + 1
-        } else {
-          err
-        }
-      }
-
-      println("Decision Tree error = " + error)
-      assert(error == 7)
     }
 
     "zip files" in {
@@ -76,7 +51,6 @@ class DecisionTreeTest extends WordSpec with Matchers {
       val x1 = trainFile.getNumericTargets.toArray
       val lblMap = trainFile.labelMap
       val y = testFile.data.toArray.map(_.toArray)
-//      val y1 = testFile.getNumericTargets.toArray
       val y1 = testFile.target.map(x => lblMap(x))
 
       val dTree = DecisionTree(None, x, x1, 350, SplitRule.ENTROPY)
@@ -86,43 +60,7 @@ class DecisionTreeTest extends WordSpec with Matchers {
       }.sum
 
       println("Decision Tree error = " + error)
-      assert(error == 328)
-    }
-
-    "balance data" in {
-      val balanceFile = getClass.getResource("/balance-scale.data").getPath
-
-      val sourceBuffer = Source.fromFile(balanceFile)
-
-      val data = sourceBuffer.getLines().map { line =>
-        val trainValues = line.split(",")
-        (trainValues.head, trainValues.drop(1))
-      }.toArray
-
-      val trainingInstances = data.map(_._2.map(_.toDouble).to[ArrayBuffer]).to[ArrayBuffer]
-      val labels = data.map(_._1)
-
-      val delimited = Delimited[String](labels = labels.distinct.toList, target = labels.toList)
-
-      val labelValues = delimited.getNumericTargets.to[ArrayBuffer]
-
-      val n = trainingInstances.length
-      val loocv = LOOCV(n)
-
-      val error = (0 until n).foldLeft(0) { (err, i) =>
-        val trainX = LOOCV.slice(trainingInstances, loocv.train(i)).toArray.map(_.toArray)
-        val trainY: Array[Int] = LOOCV.sliceY(labelValues, loocv.train(i)).toArray
-        val decisionTree = DecisionTree(trainX, trainY, 20)
-        if (labelValues(loocv.test(i)) != decisionTree.predict(trainingInstances(loocv.test(i)).toArray)) {
-          err + 1
-        } else {
-          err
-        }
-      }
-
-      println("Decision Tree error = " + error)
-
-      assert(true)
+      assert(error == 323)
     }
   }
 }

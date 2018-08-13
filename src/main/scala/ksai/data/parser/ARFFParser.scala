@@ -18,8 +18,8 @@ object ARFFParser {
               token.toUpperCase.startsWith("@RELATION")).head.trim)
           } else {
             if(line.trim.toUpperCase.startsWith("@ATTRIBUTE")) {
-               val Array(name, attrType) = line.trim.split(" ").filterNot{token =>
-                 token.toUpperCase.startsWith("@ATTRIBUTE")}.flatMap(token => token.split("\t").filterNot(tok => tok.trim.equals("")))
+               val Array(name, attrType) = line.trim.split(" ").filterNot(token =>
+                 token.toUpperCase.startsWith("@ATTRIBUTE")).flatMap(token => token.split("\t").filterNot(tok => tok.trim.equals("")))
 
               if(attrType.trim.startsWith("{") && attrType.trim.endsWith("}")){
                 val nominals = attrType.trim.drop(1).dropRight(1).split(",").map(_.trim).toList
