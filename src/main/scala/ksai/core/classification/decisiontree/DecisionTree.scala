@@ -229,7 +229,7 @@ object DecisionTree {
         val node = nextSplits.poll()
         node.split(Option(nextSplits), decisionTree)
       } catch {
-        case _: NoSuchElementException => return true
+        case _/*: NoSuchElementException*/ => return true
       }
       splitBestLeaf(currentLeaves + 1, maxNodes, nextSplits, decisionTree)
     }

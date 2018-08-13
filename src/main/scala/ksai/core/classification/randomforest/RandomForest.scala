@@ -1,28 +1,82 @@
 package ksai.core.classification.randomforest
 
 import akka.actor.{ActorSystem, Props}
+import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.util.Timeout
-import ksai.core.classification.decisiontree.{DecisionTree, SplitTask}
-import ksai.core.classification.{Attribute, NUMERIC}
 import ksai.core.classification.decisiontree.SplitRule.SplitRule
+import ksai.core.classification.decisiontree.{DecisionTree, SplitRule}
 import ksai.core.classification.randomforest.RandomForest.Tree
-import akka.pattern.ask
-import scala.concurrent.duration._
+import ksai.core.classification.{Attribute, NUMERIC}
 
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 
-class RandomForest(trees: List[Tree],
-                   error: Double,
-                   importance: Array[Double],
-                   k: Int = 2) {
+class RandomForest(trees: Array[Tree],
+                   noOfClasses: Int = 2) {
 
+  def predict(instance: Array[Double]): Int = {
+    val predictions = new Array[Int](noOfClasses)
+
+    trees.foreach { tree =>
+      predictions(tree.tree.predict(instance)) += 1
+    }
+
+    predictions.indexOf(predictions.max)
+  }
 }
 
 object RandomForest {
 
   case class Tree(tree: DecisionTree, weight: Double)
+
+  def apply(trainingInstances: Array[Array[Double]], labels: Array[Int], ntrees: Int)
+           (implicit actorSystem: ActorSystem, timeout: Timeout): RandomForest = {
+    apply(None, trainingInstances, labels, ntrees)
+  }
+
+  def apply(maybeAttributes: Option[Array[Attribute]],
+            trainingInstances: Array[Array[Double]],
+            labels: Array[Int],
+            ntrees: Int)
+           (implicit actorSystem: ActorSystem, timeout: Timeout): RandomForest = {
+    apply(maybeAttributes, trainingInstances, labels, ntrees, Math.floor(Math.sqrt(trainingInstances(0).length)).toInt)
+  }
+
+  def apply(maybeAttributes: Option[Array[Attribute]],
+            trainingInstances: Array[Array[Double]],
+            labels: Array[Int],
+            ntrees: Int,
+            mtry: Int)
+           (implicit actorSystem: ActorSystem, timeout: Timeout): RandomForest = {
+    apply(maybeAttributes, trainingInstances, labels, ntrees, 100, 5, mtry, 1.0)
+  }
+
+  def apply(maybeAttributes: Option[Array[Attribute]],
+            trainingInstances: Array[Array[Double]],
+            labels: Array[Int],
+            ntrees: Int,
+            maxNodes: Int,
+            nodeSize: Int,
+            mtry: Int,
+            subsample: Double)
+           (implicit actorSystem: ActorSystem, timeout: Timeout): RandomForest = {
+    apply(maybeAttributes, trainingInstances, labels, ntrees, maxNodes, nodeSize, mtry, subsample, SplitRule.GINI)
+  }
+
+  def apply(maybeAttributes: Option[Array[Attribute]],
+            trainingInstances: Array[Array[Double]],
+            labels: Array[Int],
+            ntrees: Int,
+            maxNodes: Int,
+            nodeSize: Int,
+            mtry: Int,
+            subsample: Double,
+            splitRule: SplitRule.Value)
+           (implicit actorSystem: ActorSystem, timeout: Timeout): RandomForest = {
+    apply(maybeAttributes, trainingInstances, labels, ntrees, maxNodes, nodeSize, mtry, subsample, splitRule, None)
+  }
 
   def apply(maybeAttributes: Option[Array[Attribute]],
             trainingInstances: Array[Array[Double]],
@@ -92,7 +146,7 @@ object RandomForest {
       RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[TrainingTask])
     )
 
-    val (predictionList, trees) = Await.result(Future.sequence((0 to ntrees).map { _ =>
+    val (predictionList, trees) = Await.result(Future.sequence((0 until ntrees).map { _ =>
       (trainingTask ? Train(attributes,
         trainingInstances,
         labels,
@@ -106,9 +160,9 @@ object RandomForest {
         prediction)).mapTo[PredictionWithWeightedTree]
     }).map { trainList =>
       (trainList.map(_.prediction), trainList.map(_.weightedTree).toArray)
-    }, 10 seconds)
+    }, timeout.duration)
 
-    val finalList = predictionList.foldLeft(Array.ofDim[Int](predictionList.length, predictionList(0).length)) { (x, y) =>
+    /*val finalList = predictionList.foldLeft(Array.ofDim[Int](predictionList.length, predictionList(0).length)) { (x, y) =>
       var n = 0
       var m = 0
       while (n < x.length) {
@@ -120,12 +174,9 @@ object RandomForest {
       }
 
       x
-    }
+    }*/
 
-    var m = 0
-
-
-    new RandomForest(trees, error, importance, noOfClasses)
+    new RandomForest(trees, noOfClasses)
   }
 
   private def checkForNegativeAndMissingValues(uniqueLabels: Array[Int]): Boolean = {
