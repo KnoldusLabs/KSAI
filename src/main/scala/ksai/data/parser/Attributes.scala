@@ -2,6 +2,8 @@ package ksai.data.parser
 
 import breeze.linalg.{DenseMatrix, DenseVector}
 
+import scala.collection.mutable
+
 case class AttributeMeta(name: String = "", typ: String = "")
 
 
@@ -38,6 +40,19 @@ case class Delimited[A](
   def labelMap: Map[A, Int] = {
     labels.zipWithIndex.map { case (l, index) => l -> index }.toMap
   }
+
+  def getNumericTargets: List[Int] = {
+    target.map(tgt => labelMap(tgt))
+  }
+
+}
+
+case class DelimitedRefactored[A](
+                         labels: List[A] = Nil,
+                         data: List[Array[Double]] = Nil,
+                         target: List[A] = Nil,
+                         labelMap: Map[A, Int] = Map.empty[A, Int]
+                       ) {
 
   def getNumericTargets: List[Int] = {
     target.map(tgt => labelMap(tgt))
