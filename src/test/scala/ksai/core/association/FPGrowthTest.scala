@@ -39,21 +39,6 @@ class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits
       val eventualResults = fPGrowth.learn()
 
       eventualResults.map(results => assert(results.size == 8))
-      /*assert(3 == results(0).support)
-      assert(1 == results(0).items.length)
-      assert(4 == results(0).items(0))
-      assert(5 == results(1).support)
-      assert(1 == results(1).items.length)
-      assert(1 == results(1).items(0))
-
-      assert(6 == results(6).support)
-      assert(2 == results(6).items.length)
-      assert(3 == results(6).items(0))
-      assert(2 == results(6).items(1))
-
-      assert(8 == results(7).support)
-      assert(1 == results(7).items.length)
-      assert(3 == results(7).items(0))*/
     }
 
     "learn with values in Pima file" in {
