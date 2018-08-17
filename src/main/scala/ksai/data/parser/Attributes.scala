@@ -24,7 +24,7 @@ case class ARFF[A](
   }
 
   def getNumericsForRegressions = {
-    target.map{
+    target.map {
       case t: String => t.toDouble
       case _ => throw new IllegalArgumentException("IT cannot be anything apart from string")
     }
@@ -37,7 +37,7 @@ case class Delimited[A](
                          data: List[Array[Double]] = Nil,
                          target: List[A] = Nil) {
 
-  private def labelMap: Map[A, Int] = {
+  def labelMap: Map[A, Int] = {
     labels.zipWithIndex.map { case (l, index) => l -> index }.toMap
   }
 
