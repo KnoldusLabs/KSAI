@@ -159,8 +159,7 @@ object DecisionTree {
     val order = maybeOrder.fold {
       attributes.zipWithIndex.map { case (attribute, index) =>
         attribute.`type` match {
-          case NUMERIC => //Option(trainingInstances.zipWithIndex.sortBy(_._1(index)).map(_._2))
-            //Option(trainingInstances.map(_(index)).zipWithIndex.sortBy(_._1).map(_._2))
+          case NUMERIC =>
             val n = trainingInstances.length
             val a = (0 until n).map { i =>
               trainingInstances(i)(index)
