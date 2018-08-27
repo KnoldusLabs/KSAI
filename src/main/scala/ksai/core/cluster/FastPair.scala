@@ -15,17 +15,17 @@ case class FastPair(
   def add(point: Int) = {
     findNeighbor(point)
     index(point) = npoints + 1
-    points(index(point)) = point
+    points(npoints + 1) = point
   }
 
   /**
     * Remove a point and update neighbors of points for which it had been nearest
     */
   def remove(point: Int) = {
-    copy(npoints = npoints - 1)
+    this.copy(npoints = npoints - 1)
     val q = index(point)
     points(q) = points(npoints)
-    index(points(q)) = q
+    index(points(npoints)) = q
 
     (0 until npoints).foreach { itr =>
       if (neighbor(points(itr)) == point) {
