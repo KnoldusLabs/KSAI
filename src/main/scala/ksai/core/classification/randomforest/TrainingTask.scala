@@ -27,7 +27,7 @@ case class Train(attributes: Array[Attribute],
 class TrainingTask extends Actor {
 
   implicit val actorSystem = context.system
-  implicit val timeout = Timeout(10 seconds)
+  implicit val timeout = Timeout(200 seconds)
 
   override def receive = {
     case Train(attributes,
@@ -97,7 +97,13 @@ class TrainingTask extends Actor {
         perm(i) = i
       }
 
-      // TODO: PERMUTATION
+      perm.indices.foreach { i =>
+        val random = new Random()
+        val j = i + random.nextInt(perm.length - i)
+        val temp = perm(i)
+        perm(i) = perm(j)
+        perm(j) = temp
+      }
 
       val nc = new Array[Int](k)
       (0 until n).foreach(i => nc(labels(i)) += 1)

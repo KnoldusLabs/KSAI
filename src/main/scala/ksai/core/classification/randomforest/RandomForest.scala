@@ -118,9 +118,9 @@ object RandomForest {
     }
 
     val attributes = maybeAttributes.fold {
-      trainingInstances(0).zipWithIndex.map { case (_, index) =>
+      trainingInstances(0).indices.map { index =>
         Attribute(`type` = NUMERIC, name = "V" + (index + 1))
-      }
+      }.toArray
     }(identity)
 
     val classWeight = maybeClassWeight.fold {
@@ -179,22 +179,15 @@ object RandomForest {
     new RandomForest(trees, noOfClasses)
   }
 
-  private def checkForNegativeAndMissingValues(uniqueLabels: Array[Int]): Boolean = {
-
-    @tailrec
-    def iterateListForCheck(list: Array[Int]): Boolean =
-      if (list.length > 1) {
-        val head = list.head
-        val tail = list.tail
-
-        if (head < 0) throw new IllegalArgumentException("Negative class label: " + head)
-        if (tail.head - head > 1) throw new IllegalArgumentException("Missing class label: " + (head + 1))
-
-        iterateListForCheck(tail)
-      } else {
-        true
+  private def checkForNegativeAndMissingValues(uniqueLabels: Array[Int]): Unit = {
+    uniqueLabels.indices.foreach { i =>
+      if (uniqueLabels(i) < 0) {
+        throw new IllegalArgumentException("Negative class label: " + uniqueLabels(i))
       }
 
-    iterateListForCheck(uniqueLabels)
+      if (i > 0 && uniqueLabels(i) - uniqueLabels(i - 1) > 1) {
+        throw new IllegalArgumentException("Missing class: " + (uniqueLabels(i) + 1))
+      }
+    }
   }
 }

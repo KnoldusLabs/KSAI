@@ -19,15 +19,20 @@ class SplitTask(trainingInstances: Array[Array[Double]],
   override def receive = {
     case BestSplit(n, count, falseCount, impurity, j, decisionTree) =>
       val currentSender = sender()
-      currentSender ! findBestSplit(n, count, falseCount, impurity, j, decisionTree)
+      //            val start = System.currentTimeMillis()
+      val a = findBestSplit(n, count, falseCount, impurity, j, decisionTree)
+      //            val end = System.currentTimeMillis()
+      //            if (end - start > 10)
+      //            println(end - start)
+      currentSender ! a
   }
 
   private def findBestSplit(n: Int,
-                    count: Array[Int],
-                    falseCount: Array[Int],
-                    impurity: Double,
-                    j: Int,
-                    decisionTree: DecisionTree): Node = {
+                            count: Array[Int],
+                            falseCount: Array[Int],
+                            impurity: Double,
+                            j: Int,
+                            decisionTree: DecisionTree): Node = {
     val splitNode = Node()
 
     decisionTree.attributes(j).`type` match {
@@ -45,7 +50,12 @@ class SplitTask(trainingInstances: Array[Array[Double]],
 
       case NUMERIC =>
         decisionTree.order(j).fold(splitNode) { orderArray =>
-          getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
+          //          val start = System.currentTimeMillis()
+          val a = getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
+          //          val end = System.currentTimeMillis()
+          //          if (end - start > 10)
+          //          println("Time taken --> " + (end - start))
+          a
         }
 
       case attributeType => throw new IllegalStateException("Unsupported Attribute type: " + attributeType)
@@ -104,7 +114,10 @@ class SplitTask(trainingInstances: Array[Array[Double]],
     val trueCount = new Array[Int](decisionTree.noOfClasses)
     var prevX = Double.NaN
     var prevY = -1
-    orderArray.foreach { index =>
+
+    var orderIndex = 0
+    while (orderIndex < orderArray.length) {
+      val index = orderArray(orderIndex)
       if (samples(index) > 0) {
         if (prevX.isNaN || trainingInstances(index)(j) == prevX || labels(index) == prevY) {
           prevX = trainingInstances(index)(j)
@@ -112,7 +125,13 @@ class SplitTask(trainingInstances: Array[Array[Double]],
           trueCount(labels(index)) += samples(index)
         } else {
 
-          val tc = trueCount.sum
+          var i = 0
+          var tc = 0
+          while (i < trueCount.length) {
+            tc += trueCount(i)
+            i += 1
+          }
+
           val fc = n - tc
 
           if (tc < decisionTree.nodeSize || fc < decisionTree.nodeSize) {
@@ -120,10 +139,16 @@ class SplitTask(trainingInstances: Array[Array[Double]],
             prevY = labels(index)
             trueCount(labels(index)) += samples(index)
           } else {
-            val falseCount = (0 until decisionTree.noOfClasses).map(q => count(q) - trueCount(q)).toArray
+            val falseCount = new Array[Int](decisionTree.noOfClasses)
+            //            (0 until decisionTree.noOfClasses).foreach(q => falseCount(q) = count(q) - trueCount(q))
+            var i = 0
+            while (i < decisionTree.noOfClasses) {
+              falseCount(i) = count(i) - trueCount(i)
+              i += 1
+            }
 
-            val trueLabel = trueCount.indexOf(trueCount.max)
-            val falseLabel = falseCount.indexOf(falseCount.max)
+            val trueLabel = getIndexOfMaxElementForArray(trueCount)
+            val falseLabel = getIndexOfMaxElementForArray(falseCount)
 
             val gain =
               impurity - tc.toDouble / n * decisionTree.impurity(trueCount, tc) - fc.toDouble / n * decisionTree.impurity(falseCount, fc)
@@ -142,9 +167,26 @@ class SplitTask(trainingInstances: Array[Array[Double]],
           }
         }
       }
+      orderIndex += 1
     }
 
     splitNode
+  }
+
+  def getIndexOfMaxElementForArray(array: Array[Int]): Int = {
+    var maxElement = array(0)
+    var maxIndex = 0
+
+    var i = 0
+    while (i < array.length) {
+      if (array(i) > maxElement) {
+        maxElement = array(i)
+        maxIndex = i
+      }
+      i += 1
+    }
+
+    maxIndex
   }
 }
 

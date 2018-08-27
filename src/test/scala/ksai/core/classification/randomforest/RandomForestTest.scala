@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 class RandomForestTest extends WordSpec with Matchers {
 
   implicit val actorSystem = ActorSystem("Random-Forest")
-  implicit val timeout = Timeout(10 seconds)
+  implicit val timeout = Timeout(50 seconds)
 
   "Random Forest" should {
     "iris file" in {
@@ -49,7 +49,6 @@ class RandomForestTest extends WordSpec with Matchers {
       val x1 = trainFile.getNumericTargets.toArray
       val lblMap = trainFile.labelMap
       val y = testFile.data.toArray.map(_.toArray)
-      //      val y1 = testFile.getNumericTargets.toArray
       val y1 = testFile.target.map(x => lblMap(x))
 
       val randomForest = RandomForest(x, x1, 200)
@@ -58,7 +57,7 @@ class RandomForestTest extends WordSpec with Matchers {
         if (randomForest.predict(y(index)) != y1(index)) 1 else 0
       }.sum
 
-      println("Raandom Forest error = " + error)
+      println("Random Forest error = " + error)
       assert(error <= 225)
     }
   }

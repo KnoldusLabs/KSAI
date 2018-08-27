@@ -53,7 +53,10 @@ class DecisionTreeTest extends WordSpec with Matchers {
       val y = testFile.data.toArray.map(_.toArray)
       val y1 = testFile.target.map(x => lblMap(x))
 
+      val start = System.currentTimeMillis()
       val dTree = DecisionTree(None, x, x1, 350, SplitRule.ENTROPY)
+      val end = System.currentTimeMillis()
+      println("time taken --> " + (end-start))
 
       val error = y.indices.map{ index =>
         if (dTree.predict(y(index)) != y1(index)) 1 else 0
