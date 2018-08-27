@@ -131,8 +131,7 @@ object RandomForest {
     val prediction = Array.ofDim[Int](n, uniqueLabels.length)
     val order = attributes.zipWithIndex.map { case (attribute, index) =>
       attribute.`type` match {
-        case NUMERIC => //Option(trainingInstances.zipWithIndex.sortBy(_._1(index)).map(_._2))
-          //Option(trainingInstances.map(_(index)).zipWithIndex.sortBy(_._1).map(_._2))
+        case NUMERIC =>
           val n = trainingInstances.length
           val a = (0 until n).map { i =>
             trainingInstances(i)(index)
@@ -161,20 +160,6 @@ object RandomForest {
     }).map { trainList =>
       (trainList.map(_.prediction), trainList.map(_.weightedTree).toArray)
     }, timeout.duration)
-
-    /*val finalList = predictionList.foldLeft(Array.ofDim[Int](predictionList.length, predictionList(0).length)) { (x, y) =>
-      var n = 0
-      var m = 0
-      while (n < x.length) {
-        while (m < x(0).length) {
-          x(n)(m) += y(n)(m)
-          m += 1
-        }
-        n += 1
-      }
-
-      x
-    }*/
 
     new RandomForest(trees, noOfClasses)
   }
