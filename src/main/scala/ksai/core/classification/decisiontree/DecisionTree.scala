@@ -175,7 +175,6 @@ object DecisionTree {
 
     val order = maybeOrder.fold {
       attributes.indices.map { index =>
-        /*attributes.zipWithIndex.map { case (attribute, index) =>*/
         attributes(index).`type` match {
           case NUMERIC =>
             val n = trainingInstances.length
@@ -209,10 +208,7 @@ object DecisionTree {
       nextSplits.add(trainRoot)
     }
 
-    //    val start = System.currentTimeMillis()
     splitBestLeaf(1, maxNodes, nextSplits, decisionTree)
-    //    val end = System.currentTimeMillis()
-    //    println("Time taken --> " + (end - start))
 
     decisionTree
   }
@@ -236,10 +232,7 @@ object DecisionTree {
     try {
       (1 to maxNodes).foreach { _ =>
         val node = nextSplits.poll()
-        //        val start = System.currentTimeMillis()
         node.split(Option(nextSplits), decisionTree)
-        //        val end = System.currentTimeMillis()
-        //        println("--> " + (end - start))
       }
       true
     } catch {

@@ -19,12 +19,7 @@ class SplitTask(trainingInstances: Array[Array[Double]],
   override def receive = {
     case BestSplit(n, count, falseCount, impurity, j, decisionTree) =>
       val currentSender = sender()
-      //            val start = System.currentTimeMillis()
-      val a = findBestSplit(n, count, falseCount, impurity, j, decisionTree)
-      //            val end = System.currentTimeMillis()
-      //            if (end - start > 10)
-      //            println(end - start)
-      currentSender ! a
+      currentSender ! findBestSplit(n, count, falseCount, impurity, j, decisionTree)
   }
 
   private def findBestSplit(n: Int,
@@ -50,12 +45,7 @@ class SplitTask(trainingInstances: Array[Array[Double]],
 
       case NUMERIC =>
         decisionTree.order(j).fold(splitNode) { orderArray =>
-          //          val start = System.currentTimeMillis()
-          val a = getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
-          //          val end = System.currentTimeMillis()
-          //          if (end - start > 10)
-          //          println("Time taken --> " + (end - start))
-          a
+          getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
         }
 
       case attributeType => throw new IllegalStateException("Unsupported Attribute type: " + attributeType)

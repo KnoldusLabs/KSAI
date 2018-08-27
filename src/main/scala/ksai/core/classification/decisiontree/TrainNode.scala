@@ -55,19 +55,14 @@ private[decisiontree] case class TrainNode(node: Node,
 
       val trueChild = TrainNode(node.maybeTrueChild.fold(Node())(identity), trainingInstances, labels, trueSamples)
 
-//      val start = System.currentTimeMillis()
-      val a = trueChild.findBestSplit(decisionTree)
-//      val end = System.currentTimeMillis()
-//      println("Time taken --> " + (end - start))
-      if (tc > decisionTree.nodeSize && a) {
+      if (tc > decisionTree.nodeSize && trueChild.findBestSplit(decisionTree)) {
         maybeNextSplits.fold(trueChild.split(None, decisionTree)) { nextSplits =>
           nextSplits.add(trueChild)
           false
         }
       }
 
-      val b = falseChild.findBestSplit(decisionTree)
-      if (fc > decisionTree.nodeSize && b) {
+      if (fc > decisionTree.nodeSize && falseChild.findBestSplit(decisionTree)) {
         maybeNextSplits.fold(falseChild.split(None, decisionTree)) { nextSplits =>
           nextSplits.add(falseChild)
           false
@@ -161,22 +156,6 @@ private[decisiontree] case class TrainNode(node: Node,
     true
   }
 
-  /*@tailrec
-  private def constructChildPosterioris(currentIndex: Int,
-                                        trueSamples: Array[Int],
-                                        trueChildPosteriori: Array[Double],
-                                        falseChildPosteriori: Array[Double]): (Array[Double], Array[Double]) = {
-    if (currentIndex >= trainingInstances.length) {
-      (trueChildPosteriori, falseChildPosteriori)
-    } else {
-      val yi = labels(currentIndex)
-
-      trueChildPosteriori(yi) = trueChildPosteriori(yi) + trueSamples(currentIndex)
-      falseChildPosteriori(yi) = falseChildPosteriori(yi) + samples(currentIndex)
-      constructChildPosterioris(currentIndex + 1, trueSamples, trueChildPosteriori, falseChildPosteriori)
-    }
-  }*/
-
   private def constructChildPosterioris(currentIndex: Int,
                                         trueSamples: Array[Int],
                                          decisionTree: DecisionTree): (Array[Double], Array[Double]) = {
@@ -211,27 +190,6 @@ private[decisiontree] case class TrainNode(node: Node,
       }
     }
   }
-
-  /*@tailrec
-  private def constructSampleForNumeric(currentIndex: Int, trueSamples: Array[Int], tc: Int, fc: Int): (Array[Int], Int, Int) = {
-    if (currentIndex >= trainingInstances.length) {
-      (trueSamples, tc, fc)
-    } else {
-      if (samples(currentIndex) > 0) {
-        if (trainingInstances(currentIndex)(node.splitFeature) <= node.splitValue) {
-          trueSamples(currentIndex) = samples(currentIndex)
-          val newTc = tc + trueSamples(currentIndex)
-          samples(currentIndex) = 0
-          constructSampleForNumeric(currentIndex + 1, trueSamples, newTc, fc)
-        } else {
-          val newFc = fc + samples(currentIndex)
-          constructSampleForNumeric(currentIndex + 1, trueSamples, tc, newFc)
-        }
-      } else {
-        constructSampleForNumeric(currentIndex + 1, trueSamples, tc, fc)
-      }
-    }
-  }*/
 
   private def constructSampleForNumeric: (Array[Int], Int, Int) = {
     var tc = 0
@@ -276,12 +234,7 @@ private[decisiontree] case class TrainNode(node: Node,
 
       case NUMERIC =>
         decisionTree.order(j).fold(splitNode) { orderArray =>
-          //          val start = System.currentTimeMillis()
-          val a = getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
-          //          val end = System.currentTimeMillis()
-          //          if (end - start > 10)
-          //          println("Time taken --> " + (end - start))
-          a
+          getSplitNodeForNumeric(splitNode, orderArray, j, n, count, decisionTree, impurity)
         }
 
       case attributeType => throw new IllegalStateException("Unsupported Attribute type: " + attributeType)
@@ -366,7 +319,6 @@ private[decisiontree] case class TrainNode(node: Node,
             trueCount(labels(index)) += samples(index)
           } else {
             val falseCount = new Array[Int](decisionTree.noOfClasses)
-            //            (0 until decisionTree.noOfClasses).foreach(q => falseCount(q) = count(q) - trueCount(q))
             var i = 0
             while (i < decisionTree.noOfClasses) {
               falseCount(i) = count(i) - trueCount(i)
