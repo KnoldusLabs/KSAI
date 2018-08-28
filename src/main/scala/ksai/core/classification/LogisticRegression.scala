@@ -560,11 +560,18 @@ object LogisticRegression {
           )
           LogisticRegression.softMax(prob)
 
-          (0 until numClasses).foreach { j =>
+          var j = 0
+
+          while(j < numClasses){
             val yi = (if (y(i) == j) 1.0 else 0.0) - prob(j)
             val pos = j * (p + 1)
-            (0 until p).foreach(l => g(pos + l) = g(pos + l) - yi * x(i)(l))
+            var l = 0
+            while(l < p){
+              g(pos + l) = g(pos + l) - yi * x(i)(l)
+              l = l + 1
+            }
             g(j * (p + 1) + p) = g(j * (p + 1) + p) - yi
+            j = j + 1
           }
 
           s - NumericFunctions.log(prob(y(i)))
