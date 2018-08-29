@@ -30,12 +30,12 @@ class KMeansActor extends Actor {
       }
       sender() ! pruneResult
 
-    case FindCentroidDistance(centroids: List[List[Double]], dataIndex: Int, dt: List[Double]) =>
+    case FindCentroidDistance(centroids: Array[Array[Double]], dataIndex: Int, dt: Array[Double]) =>
       val result = findDistanceFromCentroid(centroids, dataIndex, dt)
       sender() ! result
   }
 
-  private def findDistanceFromCentroid(centroids: List[List[Double]], dataIndex: Int, dt: List[Double]) = {
+  private def findDistanceFromCentroid(centroids: Array[Array[Double]], dataIndex: Int, dt: Array[Double]) = {
     centroids.zipWithIndex.foldLeft((-1, Double.MaxValue)) {
       case ((yIndex, nearest), (cents, centIndx)) =>
         val squredDistance = NumericFunctions.squaredDistance(dt, cents)
@@ -50,15 +50,15 @@ class KMeansActor extends Actor {
 }
 
 case class PruneDetail(
-                        center: List[Double],
-                        radius: List[Double],
-                        centroids: List[List[Double]],
+                        center: Array[Double],
+                        radius: Array[Double],
+                        centroids: Array[Array[Double]],
                         bestIndex: Int,
                         testIndex: Int
                       )
 
 case class FindCentroidDistance(
-                                 centroids: List[List[Double]],
+                                 centroids: Array[Array[Double]],
                                  dataIndex: Int,
-                                 dt: List[Double]
+                                 dt: Array[Double]
                                )

@@ -1,5 +1,6 @@
 package ksai.core.clustering
 
+import akka.actor.ActorSystem
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.MultivariateGaussian
 import ksai.core.cluster.KMeans
@@ -34,6 +35,8 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   val data: List[List[Double]] = (data1 ::: data2 ::: data3 ::: data4).map(_.data.toList)
   val label = label1 ::: label2 ::: label3 ::: label4
 
+  implicit val actorSystem = ActorSystem("K-Means")
+
   "K-Means" should "be able to apply separate files validation with LMS USPS" in {
     pending
     val zipTraingPath = getClass.getResource("/zip.train").getPath
@@ -52,8 +55,8 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   }
 
   "K-Means" should "be able to applicable to lloyd" in {
-    println("Lloyd 4");
-    KMeans(data, 4, 100).map {
+    println("Lloyd 4")
+    KMeans(data.toArray, 4, 100).map {
       case kmeans =>
         val r = AdjustRandIndex.measure(label, kmeans.y)
         val r2 = AdjustRandIndex.measureRand(label, kmeans.y)
