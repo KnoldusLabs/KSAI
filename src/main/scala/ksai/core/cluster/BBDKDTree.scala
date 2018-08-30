@@ -209,10 +209,10 @@ case class BBDKDTree(
             }
         }
     }
-    val prunedFutureArray = Future.sequence(pruneCandidates)
+    val prunedFutureArray = Future.sequence(pruneCandidates.toList)
     prunedFutureArray.map{
       prunedCandidates =>
-        val (newCandidates, notPrunedIndexCount) = prunedCandidates.unzip
+        val (newCandidates, notPrunedIndexCount) = prunedCandidates.toArray.unzip
         (newCandidates, notPrunedIndexCount.sum)
     }
   }

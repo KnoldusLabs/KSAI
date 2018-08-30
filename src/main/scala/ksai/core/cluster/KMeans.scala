@@ -133,9 +133,9 @@ object KMeans {
     val futKMeans: Array[Future[KMeans]] = (0 to runs - 1).toArray.map {
       case _ => Future(init(bbd, data, k, maxIter))
     }
-    Future.sequence(futKMeans).map {
+    Future.sequence(futKMeans.toList).map {
       case allkmeans =>
-        allkmeans.foldLeft(defaultKMeans) {
+        allkmeans.toArray.foldLeft(defaultKMeans) {
           case (result, nextKMeans) =>
             if (nextKMeans.distortion < result.distortion) {
               nextKMeans
@@ -188,9 +188,12 @@ object KMeans {
         case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(data(i), centroid)
       }
 
-      (distortionsToReturn(i), labelsToReturn(i)) = if (dist < distortions(i)) {
+      val (distortionToReturn, labelToReturn) = if (dist < distortions(i)) {
         (dist, kCount - 1)
       } else (distortions(i), y(i))
+
+      distortionsToReturn(i) = distortionToReturn
+      labelsToReturn(i) = labelToReturn
 
       i += 1
     }
@@ -317,9 +320,9 @@ object KMeans {
       }
     }
 
-    Future.sequence(centroidIndexAndDistance).map {
+    Future.sequence(centroidIndexAndDistance.toList).map {
       case distanceAndYs =>
-        distanceAndYs.foldLeft((y, 0.0)) {
+        distanceAndYs.toArray.foldLeft((y, 0.0)) {
           case ((ys, wcss), (dataIndex: Int, yIndex: Int, nearest: Double)) =>
             val newYs = if (yIndex != -1) {
               ys.patch(dataIndex, Seq(yIndex), 1)
