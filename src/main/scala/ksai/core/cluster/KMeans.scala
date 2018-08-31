@@ -357,17 +357,28 @@ object KMeans {
     }*/
 
     val reinitializedCentroids = Array.ofDim[Double](initialCentroids.length, initialCentroids(0).length)
-      initialCentroids.indices.foreach { indx =>
+    var indx = 0
+    while (indx < initialCentroids.length) {
         reinitializedCentroids(indx) = yCentIndices.get(indx) match {
         case Some(numSameLabelData) =>
-          val dataSum = numSameLabelData.foldLeft(initialCentroids(indx)) {
-            case (resultArray, yIndex) => (data(yIndex) zip resultArray).map { case (dt, dt2) => dt + dt2 }
+          val n = numSameLabelData.length
+          val dataSum = initialCentroids(indx)
+          var i = 0
+          var j = 0
+          while (i < n) {
+            while (j < dataSum.length) {
+              dataSum(j) += data(numSameLabelData(j))(j)
+              j += 1
+            }
+            i += 1
           }
 
           if (dataSum.isEmpty) initialCentroids(indx) else dataSum.map(_ / numSameLabelData.length)
 
         case None => initialCentroids(indx)
       }
+
+      indx += 1
     }
 
     (reinitializedCentroids, reinitializedSize)
