@@ -28,16 +28,27 @@ case class BBDKDTree(
                  counts: Array[Int], labels: Array[Int]): (Double, Array[Array[Double]], Array[Int], Array[Int]) = {
     val centroidSize: Int = centroids.length
 
-    val candidates = (0 to centroidSize - 1).toArray
-    val sumInsideSize = sums(0).size
+    val candidates = (0 until centroidSize).toArray
+    val sumInsideSize = sums(0).length
 
-    val newSums = (1 to centroidSize).toArray.map {
-      case _ => (1 to sumInsideSize).toArray.map(_ => 0.0)
+    var sumsNew = new Array[Array[Double]](0)
+    var i = 0
+    var j = 0
+    var innerArrays = new Array[Double](0)
+    while (i < centroidSize) {
+      while (j < sumInsideSize) {
+        innerArrays = innerArrays :+ 0.0
+        j += 1
+      }
+      sumsNew = sumsNew :+ innerArrays
+      innerArrays = new Array[Double](0)
+      j = 0
+      i += 1
     }
 
     val system = ActorSystem()
     val actorRouterRef = system.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
-    val result = Await.result(clusterRecursively(root, centroids, candidates, centroidSize, newSums, counts, labels, actorRouterRef), 15 * 60 seconds)
+    val result = Await.result(clusterRecursively(root, centroids, candidates, centroidSize, sumsNew, counts, labels, actorRouterRef), 15 * 60 seconds)
     result
   }
 
@@ -62,21 +73,25 @@ case class BBDKDTree(
         val d = centroids(0).length
         val best = centroids(bestIndex)
         val test = centroids(testIndex)
-        val lhs = 0.0
-        val rhs = 0.0
-
-        val (rLHS, rRHS) = (best.take(d) zip test.take(d) zip center.take(d) zip radius.take(d)).foldLeft((lhs, rhs)) {
-          case ((resLHS, resRHS), (((bst, tst), cntr), rad)) =>
-            val diff = tst - bst
-            val newLHS = resLHS + (diff * diff)
-            val newRHS = if (diff > 0) {
-              resRHS + ((cntr + rad - bst) * diff)
-            } else {
-              resRHS + ((cntr - rad - bst) * diff)
-            }
-            (newLHS, newRHS)
+        var i = 0
+        var LHS = 0.0
+        var RHS = 0.0
+        val bestSelected = best.take(d)
+        val testSelected = test.take(d)
+        val centerSelected = center.take(d)
+        val radiusSelected = radius.take(d)
+        while (i < bestSelected.length && i < testSelected.length && i < centerSelected.length && i < radiusSelected.length) {
+          val diff = testSelected(i) - bestSelected(i)
+          LHS = LHS + (diff * diff)
+          if (diff > 0) {
+            RHS = (centerSelected(i) + radiusSelected(i) - bestSelected(i)) * diff
+          } else {
+            RHS = (centerSelected(i) - radiusSelected(i) - bestSelected(i)) * diff
+          }
+          i += 1
         }
-        rLHS >= (2 * rRHS)
+
+        LHS >= (2 * RHS)
       }
     }
   }
@@ -105,8 +120,6 @@ case class BBDKDTree(
     * @return
     */
   private def getLowerAndUpperBound(data: Array[Array[Double]]): (Array[Double], Array[Double]) = {
-    //    val lowBound = data.head
-    //    val uppBound = data.head
     var finalUpperBound = data.head
     var finalLowerBound = data.head
     var i = 0
@@ -130,20 +143,6 @@ case class BBDKDTree(
       i += 1
       j = 0
     }
-    //    data.foldLeft((lowBound, uppBound)) {
-    //      case ((lbResult, ubResult), dataRow) =>
-    //        dataRow.zipWithIndex.foldLeft((lbResult, ubResult)) {
-    //          case ((lRes, uRes), (dt , idx)) =>
-    //            val finalLBound = if (lRes(idx) > dt) {
-    //              lRes.patch(idx, Seq(dt), 1)
-    //            } else lRes
-    //
-    //            val finalUBound = if (uRes(idx) < dt) {
-    //              uRes.patch(idx, Seq(dt), 1)
-    //            } else uRes
-    //            (finalLBound, finalUBound)
-    //        }
-    //    }
     (finalLowerBound, finalUpperBound)
   }
 
@@ -151,18 +150,17 @@ case class BBDKDTree(
     * ask if the size of both lower and upper bound are of same length
     **/
   private def calculateBoundingBox(lowerBound: Array[Double], upperBound: Array[Double]): (Array[Double], Array[Double], Double, Int) = {
-    var lbArray = lowerBound
-    var ubArray = upperBound
-
+    val lbLength = lowerBound.length
+    val ubLength = upperBound.length
     var mxRadius = -1.0
     var splitIdx = 0
     var centers = new Array[Double](0)
     var radius = new Array[Double](0)
 
     var j = 0
-    while (j < ubArray.length && j < lbArray.length) {
-      centers = centers :+ (lbArray(j) + ubArray(j)) / 2
-      val rds = (ubArray(j) - lbArray(j)) / 2
+    while (j < ubLength && j < lbLength) {
+      centers = centers :+ (lowerBound(j) + upperBound(j)) / 2
+      val rds = (upperBound(j) - lowerBound(j)) / 2
       radius = radius :+ rds
       if (rds > mxRadius) {
         mxRadius = rds
@@ -170,33 +168,11 @@ case class BBDKDTree(
       }
       j += 1
     }
-
-    /* // Calculate bounding box stats
-     ((lowerBound zip upperBound) zipWithIndex).foldLeft(
-       (Array[Double](), Array[Double](), -1.0, 0)) {
-       case ((centers, radius, mxRadius, splitIdx), ((lb, ub), idx)) =>
-         val centerRes = centers :+ ((lb + ub) / 2)
-         val rds = ((ub - lb) / 2)
-         val finalRadius = radius :+ rds
-         if (rds > mxRadius) {
-           (centerRes, finalRadius, rds, idx)
-         } else (centerRes, finalRadius, mxRadius, splitIdx)
-     }*/
     (centers, radius, mxRadius, splitIdx)
   }
 
   private def splitNodes(data: Array[(Array[Double], Int)], nodeCenters: Array[Double], splitIndex: Int) = {
     val splitCutoff: Double = nodeCenters(splitIndex)
-    //    compressArray(data, splitIndex, splitCutoff, Array(), Array())
-
-    //
-    //    data.foldLeft((Array[(Array[Double], Int)](), Array[(Array[Double], Int)]())){
-    //      case ((res1, res2), (row, index)) => if(row(splitIndex) < splitCutoff){
-    //        (res1, res2 :+ (row, index))
-    //      } else {
-    //        (res1 :+ (row, index), res2)
-    //      }
-    //    }
     var res1 = Array[(Array[Double], Int)]()
     var res2 = Array[(Array[Double], Int)]()
     var dataIndex = 0
@@ -229,15 +205,13 @@ case class BBDKDTree(
     if (maxRadius < 1E-10) {
       val defaultNodeSum = data.head
       var nodeSumArray = new Array[Double](0)
-      /*val nodeSum = */if (data.length > 1) {
+      if (data.length > 1) {
         var i = 0
-        while(i < defaultNodeSum.length){
+        while (i < defaultNodeSum.length) {
           nodeSumArray = nodeSumArray :+ defaultNodeSum(i) * data.length
           i += 1
         }
-       /* defafultNodeSum.map {
-          case sum => sum * data.size
-        }*/
+
       } else nodeSumArray = defaultNodeSum
 
       val node = BBDKDNode(count, nodeIndex, 0.0, nodeCenters, nodeRadius, nodeSumArray)
@@ -250,13 +224,10 @@ case class BBDKDTree(
       val (nodeUpper, _) = buildNode(i2data)
       var nodeSumArray = new Array[Double](0)
       var i = 0
-      while(i < nodeLower.sum.length && i < nodeUpper.sum.length){
-        nodeSumArray =  nodeSumArray :+  nodeLower.sum(i) + nodeUpper.sum(i)
+      while (i < nodeLower.sum.length && i < nodeUpper.sum.length) {
+        nodeSumArray = nodeSumArray :+ nodeLower.sum(i) + nodeUpper.sum(i)
         i += 1
       }
-      /*val nodeSum = (nodeLower.sum zip nodeUpper.sum).map {
-        case (nlSum, nuSum) => nlSum + nuSum
-      }*/
       val nodeMean = nodeSumArray.map(_ / zipData.size)
       val nodeCost = getNodeCost(nodeLower, nodeMean) + getNodeCost(nodeUpper, nodeMean)
       val node = BBDKDNode(count, nodeIndex, nodeCost, nodeCenters, nodeRadius, nodeSumArray, Some(nodeLower), Some(nodeUpper))
@@ -282,48 +253,33 @@ case class BBDKDTree(
     var total = 0.0
     var i = 0
 
-    while(i < node.sum.length && i < center.length){
+    while (i < node.sum.length && i < center.length) {
       val cost = (node.sum(i) / node.count) - center(i)
       total += cost * cost
       i += 1
     }
     val scatter = total
-
-    /*val scatter = (node.sum zip center).foldLeft(0.0) {
-      case (total, (sum, center)) =>
-        val cost = ((sum / node.count) - center)
-        total + (cost * cost)
-    }*/
     node.cost + (node.count * scatter)
   }
 
   private def findClosestCentroidCandidate(node: BBDKDNode, candidates: Array[Int],
                                            centroidSize: Int, centroids: Array[Array[Double]]) = {
     // Determine which mean the node mean is closest to
-    /*val minDist = NumericFunctions.squaredDistance(node.center, centroids(candidates(0)))
-    val closest = candidates(0)*/
     var minDist = NumericFunctions.squaredDistance(node.center, centroids(candidates(0)))
     var closest = candidates(0)
 
     val array = candidates.drop(1).take(centroidSize)
     var i = 0
 
-    while(i < array.length){
+    while (i < array.length) {
       val dist = NumericFunctions.squaredDistance(node.center, centroids(array(i)))
-      if(dist < minDist){
+      if (dist < minDist) {
         minDist = dist
         closest = array(i)
       }
       i += 1
     }
     (minDist, closest)
-    /*candidates.drop(1).take(centroidSize).foldLeft((minDist, closest)) {
-      case ((resMinDist, resClosest), candidate) =>
-        val dist = NumericFunctions.squaredDistance(node.center, centroids(candidate))
-        if (dist < minDist) {
-          (dist, candidate)
-        } else (resMinDist, resClosest)
-    }*/
   }
 
   private def pruneAsync(node: BBDKDNode, centroids: Array[Array[Double]],
@@ -372,10 +328,10 @@ case class BBDKDTree(
     val res = (node.lower, node.upper) match {
       case (Some(lower), Some(upper)) =>
 
-      pruneAsync(node, centroids, candidates, centroidSize, closestCentroidCandidate, pruneActorRef).flatMap{
+        pruneAsync(node, centroids, candidates, centroidSize, closestCentroidCandidate, pruneActorRef).flatMap {
           case (newCandidates, notPrunedIndexCount) =>
             if (notPrunedIndexCount > 1) {
-             for {
+              for {
                 (cost1, sums1, counts1, labels1) <- clusterRecursively(lower, centroids, newCandidates, notPrunedIndexCount, sums, counts, labels, pruneActorRef)
                 (cost2, sums2, counts2, labels2) <- clusterRecursively(upper, centroids, newCandidates, notPrunedIndexCount, sums1, counts1, labels1, pruneActorRef)
               } yield Some((cost1 + cost2, sums2, counts2, labels2))
