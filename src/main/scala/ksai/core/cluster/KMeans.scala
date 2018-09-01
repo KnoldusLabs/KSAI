@@ -320,15 +320,40 @@ object KMeans {
       }
     }
 
+    // TODO: Fix this.
+    /*var i = 0
+    val centroidIndexAndDistance: Array[Future[(Int, Int, Double)]] = new Array[Future[(Int, Int, Double)]](data.length)
+    while (i < data.length) {
+      centroidIndexAndDistance(i) = (kmeansActorRef ? FindCentroidDistance(centroids, i, data(i))).map {
+        case (yIndex: Int, nearest: Double) => (i, yIndex, nearest)
+      }
+      i += 1
+    }*/
+
     Future.sequence(centroidIndexAndDistance.toList).map {
       case distanceAndYs =>
-        distanceAndYs.toArray.foldLeft((y, 0.0)) {
+        /*distanceAndYs.toArray.foldLeft((y, 0.0)) {
           case ((ys, wcss), (dataIndex: Int, yIndex: Int, nearest: Double)) =>
             val newYs = if (yIndex != -1) {
               ys.patch(dataIndex, Seq(yIndex), 1)
             } else ys
             (newYs, wcss + nearest)
+        }*/
+
+        var i = 0
+        var ys = y
+        var wcss = 0.0
+        while (i < distanceAndYs.length) {
+          val (dataIndex, yIndex, nearest) = distanceAndYs(i)
+          if (yIndex != -1) {
+            ys = ys.patch(dataIndex, Seq(yIndex), 1)
+          }
+
+          wcss += nearest
+          i += 1
         }
+
+        (ys, wcss)
     }
   }
 
