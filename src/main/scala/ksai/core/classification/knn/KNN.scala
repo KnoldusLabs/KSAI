@@ -1,11 +1,15 @@
 package ksai.core.classification.knn
 
 
+trait KNNSearch{
+  def knn(q: Array[Double], k: Int): List[Neighbor]
+}
+
 case class KNN(
                 y: Array[Int], //The labels of training samples.
                 k: Int, //The number of neighbors for decision.
                 c: Int, //The number of classes
-                knn: KDTree //The data structure for nearest neighbor search.
+                knn: KNNSearch //The data structure for nearest neighbor search.
               ) {
 
   def predict(x: Array[Double]): Int = {
@@ -42,7 +46,12 @@ object KNN {
       throw new IllegalArgumentException(s"Illegal k = $k")
     }
 
-    val knn = KDTree(data, y)
+    val knn = if (data(0).length < 10) {
+      KDTree(data, y)
+    } else {
+      CoverTree(data)
+    }
+
     val classes = y.toSet.size
     KNN(y, k, classes, knn)
   }

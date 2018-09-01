@@ -23,7 +23,7 @@ case class KDTree(
                    root: Node,
                    index: Array[Int],
                    identicalExcluded: Boolean = true
-                 ) {
+                 ) extends KNNSearch {
   def knn(q: Array[Double], k: Int): List[Neighbor] = {
 
     if (k <= 0) {
