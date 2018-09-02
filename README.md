@@ -48,8 +48,8 @@ Data
 -----
 While trying to learn the algorithms we need data and below are some of the links from where one can easily get data
 
-[https://archive.ics.uci.edu/ml/index.php](https://archive.ics.uci.edu/ml/index.php)
-[https://www.kaggle.com/data](https://www.kaggle.com/data)
+* [https://archive.ics.uci.edu/ml/index.php](https://archive.ics.uci.edu/ml/index.php)
+* [https://www.kaggle.com/data](https://www.kaggle.com/data)
 
 
 Committers
