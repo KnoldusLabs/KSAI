@@ -326,7 +326,7 @@ object NumericFunctions {
 
     val fOld = func.f(x, g)
 
-    println(f"L-BFGS: initial function value: $fOld%.5g")
+//    println(f"L-BFGS: initial function value: $fOld%.5g")
 
     val sum = (0 until n).foldLeft(0.0){(s, i) =>
       xi(i) = -g(i)

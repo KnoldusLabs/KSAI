@@ -52,6 +52,7 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   }
 
   "K-Means" should "be able to applicable to lloyd" in {
+    pending
     println("Lloyd 4");
     KMeans(data, 4, 100).map {
       case kmeans =>
@@ -63,6 +64,7 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
   }
 
   "K-Means" should "be able to applicable to lloyd with 64" in {
+    pending
     println("Lloyd 4");
     KMeans(data, 64, 100).map {
       case kmeans =>
