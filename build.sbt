@@ -6,7 +6,7 @@ name := "ksai"
 
 version := "0.1"
 
-scalaVersion := "2.12.4"
+scalaVersion := "2.12.6"
 
 organization in ThisBuild := "ksai"
 
@@ -24,3 +24,5 @@ libraryDependencies ++= Seq(
   akka,
   akkaTest
 )
+
+useGpg := true
