@@ -60,8 +60,8 @@ trait LogisticRegression extends SoftClassifier[Array[Double]]{
     * probabilities.
     *
     * @param x          the instance to be classified.
-    * @param posterior the array to store a posteriori probabilities on output.
-    * @return the predicted class label
+    * @param posterior  the array to store a posteriori probabilities on output.
+    * @return           the predicted class label
     */
   def predict(x: Array[Double], posterior: Array[Double]): Int
 }
