@@ -281,34 +281,25 @@ object NumericFunctions {
     * <pre>
     * min f(x),    x = (x1,x2,...,x_n),
     * </pre>
-    * using the limited-memory BFGS method. The method is especially
-    * effective on problems involving a large number of variables. In
-    * a typical iteration of this method an approximation <code>Hk</code> to the
-    * inverse of the Hessian is obtained by applying <code>m</code> BFGS updates to
-    * a diagonal matrix <code>Hk0</code>, using information from the previous M steps.
-    * The user specifies the number <code>m</code>, which determines the amount of
-    * storage required by the routine. The algorithm is described in "On the
-    * limited memory BFGS method for large scale optimization", by D. Liu and J. Nocedal,
-    * Mathematical Programming B 45 (1989) 503-528.
+    * using the limited-memory BFGS method. This method is the optimization of
+    * BFGS minimization algorithms. It is used for the problems that are too
+    * big for limited memory computer systems. i.e. the problems with a large
+    * variables set.
     *
-    * @param func    the function to be minimized.
-    * @param m       the number of corrections used in the L-BFGS update.
-    *                Values of <code>m</code> less than 3 are not recommended;
-    *                large values of <code>m</code> will result in excessive
-    *                computing time. <code>3 &lt;= m &lt;= 7</code> is recommended.
-    *                A common choice for m is m = 5.
-    * @param x       on initial entry this must be set by the user to the values
-    *                of the initial estimate of the solution vector. On exit with
-    *                <code>iflag = 0</code>, it contains the values of the variables
-    *                at the best point found (usually a solution).
-    * @param gTol    the convergence requirement on zeroing the gradient.
-    * @param maxIteration the maximum allowed number of iterations.
-    * @return the minimum value of the function.
+    * @param func                 the function to be minimized.
+    * @param m                    the number of corrections used in the L-BFGS
+    *                             update. General value = 5, should not be less
+    *                             than 3 and not too high(more computation time)
+    * @param x                    initial estimate of the solution vector and after
+    *                             execution get refined at the best point found
+    * @param gradientTolerance    the convergence requirement on zeroing the gradient.
+    * @param maxIteration         the maximum allowed number of iterations.
+    * @return                     the minimum value of the function.
     */
   def min(func: DifferentiableMultivariateFunction,
           m: Int,
           x: Array[Double],
-          gTol : Double,
+          gradientTolerance : Double,
           maxIteration: Int): Double = {
     if (m <= 0) throw new IllegalArgumentException("Invalid m: " + m)
 
@@ -369,7 +360,7 @@ object NumericFunctions {
             if(temp > oldTest) temp else oldTest
           }
 
-          if(test2 < gTol) {
+          if(test2 < gradientTolerance) {
             println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
             (k, true, f)
           } else {
@@ -412,18 +403,16 @@ object NumericFunctions {
     * </pre>
     * using the BFGS method.
     *
-    * @param func    the function to be minimized.
-    * @param x       on initial entry this must be set by the user to the values
-    *                of the initial estimate of the solution vector. On exit, it
-    *                contains the values of the variables at the best point found
-    *                (usually a solution).
-    * @param gTol    the convergence requirement on zeroing the gradient.
-    * @param maxIteration the maximum allowed number of iterations.
-    * @return the minimum value of the function.
+    * @param func                 the function to be minimized.
+    * @param x                    initial estimate of the solution vector and after
+    *                             execution get refined at the best point found
+    * @param gradientTolerance    the convergence requirement on zeroing the gradient.
+    * @param maxIteration         the maximum allowed number of iterations.
+    * @return                     the minimum value of the function.
     */
   def min(func: DifferentiableMultivariateFunction,
           x: Array[Double],
-          gTol : Double,
+          gradientTolerance : Double,
           maxIteration: Int): Double = {
 
     val TOLX = 4 * EPSILON
@@ -487,7 +476,7 @@ object NumericFunctions {
             if(temp > oldTest) temp else oldTest
           }
 
-          if(test2 < gTol) {
+          if(test2 < gradientTolerance) {
             println(f"BFGS: the function value after $iteration%3d iterations: $f%.5g")
             (true, f)
           } else {
