@@ -3,7 +3,7 @@ KSAI
 
 KSAI is a machine learning library contains various algorithms such as classification, regression, clustering and many others. It is an attempt to build machine learning algorithms with the language Scala. The library Breeze, which is built on scala is getting used for doing the mathematical functionalities.
 
-KSAI mainly used scala’s in built case classes, Future and some of the other cool feature that it has. It has also used Akka in some places. In order to start exploring the library the test cases might be good start. Right now it might not be that easy to use the library with limited documentation and unclear api, however the committers will update them in the near future.
+KSAI mainly used scala’s in built case classes, Future and some of the other cool features that it has. It has also used Akka in some places. In order to start exploring the library the test cases might be good start. Right now it might not be that easy to use the library with limited documentation and unclear api, however the committers will update them in the near future.
 
 
 Installation
