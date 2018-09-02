@@ -117,7 +117,7 @@ case class BBDKDTree(
     * Lowerbound is basically the collection of minimum of each feature.
     * Upperbound is basically the collection of maximum of each feature.
     *
-    * @return
+    * @return Lowerbound Upperbound for the passed data
     */
   private def getLowerAndUpperBound(data: Array[Array[Double]]): (Array[Double], Array[Double]) = {
     var finalUpperBound = data.head
@@ -146,9 +146,6 @@ case class BBDKDTree(
     (finalLowerBound, finalUpperBound)
   }
 
-  /**
-    * ask if the size of both lower and upper bound are of same length
-    **/
   private def calculateBoundingBox(lowerBound: Array[Double], upperBound: Array[Double]): (Array[Double], Array[Double], Double, Int) = {
     val lbLength = lowerBound.length
     val ubLength = upperBound.length
