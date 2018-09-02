@@ -359,7 +359,7 @@ object NumericFunctions {
         }
 
         if (test < TOLX) {
-          println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
+//          println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
           (k, true, f)
         } else {
           val den = Math.max(f, 1.0)
@@ -370,10 +370,10 @@ object NumericFunctions {
           }
 
           if(test2 < gTol) {
-            println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
+//            println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
             (k, true, f)
           } else {
-            if (iteration % 10 == 0) println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
+//            if (iteration % 10 == 0) println(f"L-BFGS: the function value after $iteration%3d iterations: $f%.5g")
 
             val ys = dot(y(k), s(k))
             val yy = dot(y(k), y(k))
