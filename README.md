@@ -15,14 +15,14 @@ You can use the libraries through Maven central repository by adding the followi
     <dependency>
         <groupId>io.github.knolduslabs.ksai</groupId>
  	    <artifactId>ksai</artifactId>
- 	    <version>0.1</version>
+ 	    <version>0.0.2</version>
     </dependency>
 ```
 
 Or in build.sbt
 
 ```
-    libraryDependencies += "io.github.knolduslabs.ksai" %% "ksai" % "0.1"
+    libraryDependencies += "io.github.knolduslabs.ksai" %% "ksai" % "0.0.2"
 ```
 
 Algorithms
