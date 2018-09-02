@@ -7,6 +7,8 @@ ThisBuild / organization := "io.github.knolduslabs.ksai"
 ThisBuild / organizationName := "Knoldus"
 ThisBuild / organizationHomepage := Some(url("http://www.knoldus.com/"))
 
+profileName := "io.github.knolduslabs.ksai"
+
 ThisBuild / scmInfo := Some(
   ScmInfo(
     url("https://github.com/KnoldusLabs/KSAI"),
