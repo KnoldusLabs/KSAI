@@ -34,7 +34,7 @@ object NumericFunctions {
     }
   }
 
-  def squaredDistance(x: List[Double], y: List[Double]): Double = {
+  def squaredDistance(x: Array[Double], y: Array[Double]): Double = {
     if (x.length != y.length) {
       throw new IllegalArgumentException("Input vector sizes are different.")
     }
@@ -46,7 +46,7 @@ object NumericFunctions {
     }
   }
 
-  def squaredDistanceWithMissingValues(x: List[Double], y: List[Double]): Double = {
+  def squaredDistanceWithMissingValues(x: Array[Double], y: Array[Double]): Double = {
     val (dist, nonMissing) = (x zip y).foldLeft((0.0, 0)) {
       case ((result, nonMissingValue), (xValue, yValue)) =>
         if (!xValue.nan && !yValue.nan) {
@@ -74,7 +74,7 @@ object NumericFunctions {
     * it is always a finite value. The square root of the Jensen-Shannon divergence
     * is a metric.
     */
-  def jensenShannonDivergence(x: List[Double], y: List[Double]): Double = {
+  def jensenShannonDivergence(x: Array[Double], y: Array[Double]): Double = {
     val m = (x zip y).map {
       case (xValue, yValue) => (xValue + yValue) / 2
     }
@@ -96,7 +96,7 @@ object NumericFunctions {
     * not a true metric - for example, the KL from P to Q is not necessarily
     * the same as the KL from Q to P.
     */
-  def kullbackLeiblerDivergence(x: List[Double], y: List[Double]): Double = {
+  def kullbackLeiblerDivergence(x: Array[Double], y: Array[Double]): Double = {
     val (resKL, intersect) = (x zip y).foldLeft((0.0, false)) {
       case ((kl, intersection), (xValue, yValue)) =>
         if (xValue != 0.0 && yValue != 0.0) {
@@ -137,7 +137,7 @@ object NumericFunctions {
       throw new IllegalArgumentException(s"n has to be nonNegative: $n")
     }
 
-    (2 to n).toList.foldLeft(0.0) {
+    (2 to n).toArray.foldLeft(0.0) {
       case (result, cnt) => result + Math.log(cnt)
     }
   }
