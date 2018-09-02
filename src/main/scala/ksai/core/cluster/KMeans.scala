@@ -165,19 +165,6 @@ object KMeans {
 
   private def findDistortionsAndLabels(data: Array[Array[Double]], distortions: Array[Double], y: Array[Int],
                                        distanceModel: ClusteringDistance, centroid: Array[Double], kCount: Int) = {
-    /*((data zip distortions) zip y).map {
-      case ((dataRow, distortion), yValue) =>
-        val dist = distanceModel match {
-          case EUCLIDEAN => NumericFunctions.squaredDistance(dataRow, centroid)
-          case EUCLIDEAN_MISSING_VALUES => NumericFunctions.squaredDistanceWithMissingValues(dataRow, centroid)
-          case JENSEN_SHANNON_DIVERGENCE => NumericFunctions.jensenShannonDivergence(dataRow, centroid)
-        }
-
-        if (dist < distortion) {
-          (dist, kCount - 1)
-        } else (distortion, yValue)
-    }.unzip*/
-
     val distortionsToReturn: Array[Double] = new Array[Double](distortions.length)
     val labelsToReturn: Array[Int] = new Array[Int](y.length)
     var i = 0
@@ -211,26 +198,33 @@ object KMeans {
     }
   }
 
+  /**
+    * Creates an initial clustering configuration as a seed.
+    *
+    * @param data data objects to be clustered.
+    * @param k the number of cluster.
+    * @param distanceModel the distance model.
+    * @return the cluster labels.
+    */
   def seed(data: Array[Array[Double]], k: Int, distanceModel: ClusteringDistance): Array[Int] = {
     val n = data.length
     val centroid: Array[Double] = data(Random.self.nextInt(n))
-    val distortions: Array[Double] = new Array[Double](n)
-    val y: Array[Int] = new Array[Int](n)
+    val distortions: Array[Double] = Array.fill(n)(Double.MaxValue)
+    val y: Array[Int] = Array.fill(n)(0)
 
-    var i = 0
-    while (i < n) {
-      distortions(i) = Double.MaxValue
-      y(i) = 0
+    var i = 1
+    var newDistortions = distortions
+    var ys = y
+    var newCentroids = Array[Double]()
+    while (i < k) {
+      val (returnedDistortions, labels) = findDistortionsAndLabels(data, newDistortions, ys, distanceModel, centroid, i)
+      val cutoff: Double = Math.random() * newDistortions.sum
+      val (_, centroidIndex) = findCentroid(newDistortions, cutoff)
+
+      newDistortions = returnedDistortions
+      ys = labels
+      newCentroids = data(centroidIndex)
       i += 1
-    }
-
-    val (newDistortions, ys, newCentroids) = (1 until k).foldLeft((distortions, y, Array[Double]())) {
-      case ((foldedDistortions, foldedLabels, resCentroid), j) =>
-        val (newDistortions, labels) = findDistortionsAndLabels(data, foldedDistortions, foldedLabels, distanceModel, centroid, j)
-        val cutoff: Double = Math.random() * newDistortions.sum
-        val (_, centroidIndex) = findCentroid(newDistortions, cutoff)
-
-        (newDistortions, labels, data(centroidIndex))
     }
 
     val (_, finalY) = findDistortionsAndLabels(data, newDistortions, ys, distanceModel, newCentroids, k)
@@ -270,12 +264,29 @@ object KMeans {
     } yield finalKMeans
   }
 
+  /**
+    * Constructor method to create KMeans object.
+    *
+    * @param data the input data of which each row is a sample.
+    * @param k the number of clusters.
+    * @param maxIter the maximum number of iterations for each running.
+    * @param actorSystem required to spawn actors for multi-threading.
+    * @return KMeans object wrapped in future.
+    */
   def apply(data: Array[Array[Double]], k: Int, maxIter: Int)(implicit actorSystem: ActorSystem): Future[KMeans] = {
     val actorRouterRef = actorSystem.actorOf(RoundRobinPool(Runtime.getRuntime.availableProcessors() * 2).props(Props[KMeansActor]))
 
     lloyd(data, k, maxIter, actorRouterRef)
   }
 
+  /**
+    * Implementation of the lloyd algorithm. Called by constructor method to create KMeans object.
+    *
+    * @param data the input data of which each row is a sample.
+    * @param k the number of clusters.
+    * @param maxIter the maximum number of iterations for each running.
+    * @return KMeans object wrapped in future.
+    */
   def lloyd(data: Array[Array[Double]], k: Int, maxIter: Int, kmeansActorRef: ActorRef): Future[KMeans] = {
     if (k < 2) {
       throw new IllegalArgumentException("Invalid number of clusters: " + k)
@@ -332,21 +343,15 @@ object KMeans {
 
     Future.sequence(centroidIndexAndDistance.toList).map {
       case distanceAndYs =>
-        /*distanceAndYs.toArray.foldLeft((y, 0.0)) {
-          case ((ys, wcss), (dataIndex: Int, yIndex: Int, nearest: Double)) =>
-            val newYs = if (yIndex != -1) {
-              ys.patch(dataIndex, Seq(yIndex), 1)
-            } else ys
-            (newYs, wcss + nearest)
-        }*/
 
+        val distanceAndYsArray = distanceAndYs.toArray
         var i = 0
-        var ys = y
+        val ys = y
         var wcss = 0.0
-        while (i < distanceAndYs.length) {
-          val (dataIndex, yIndex, nearest) = distanceAndYs(i)
+        while (i < distanceAndYsArray.length) {
+          val (dataIndex, yIndex, nearest) = distanceAndYsArray(i)
           if (yIndex != -1) {
-            ys = ys.patch(dataIndex, Seq(yIndex), 1)
+            ys(dataIndex) = yIndex
           }
 
           wcss += nearest
@@ -365,21 +370,6 @@ object KMeans {
     initialSize.indices.foreach { index => reinitializedSize(index) = initialSize(index) + y.count(_ == index) }
 
     val yCentIndices = y.groupBy(yValue => yValue)
-
-    /*val reinitializedCentroids = initialCentroids.zipWithIndex.map {
-      case (initCent, indx) =>
-        yCentIndices.get(indx) match {
-        case Some(numSameLabelData) =>
-          numSameLabelData.foldLeft(initCent) {
-            case (resultArray, yIndex) => (data(yIndex) zip resultArray).map { case (dt, dt2) => dt + dt2 }
-          } match {
-            case Nil => initCent
-            case dataSum => dataSum.map(_ / numSameLabelData.size)
-          }
-
-        case None => initCent
-        }
-    }*/
 
     val reinitializedCentroids = Array.ofDim[Double](initialCentroids.length, initialCentroids(0).length)
     var indx = 0

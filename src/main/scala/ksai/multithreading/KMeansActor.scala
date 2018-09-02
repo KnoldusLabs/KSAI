@@ -36,23 +36,6 @@ class KMeansActor extends Actor {
   }
 
   private def findDistanceFromCentroid(centroids: Array[Array[Double]], dataIndex: Int, dt: Array[Double]): (Int, Double) = {
-    /*val start = System.currentTimeMillis()
-    val a = centroids.zipWithIndex.foldLeft((-1, Double.MaxValue)) {
-      case ((yIndex, nearest), (cents, centIndx)) =>
-        val squredDistance = NumericFunctions.squaredDistance(dt, cents)
-        if (nearest > squredDistance) {
-          (centIndx, squredDistance)
-        } else {
-          (yIndex, nearest)
-        }
-    }
-    val end = System.currentTimeMillis()
-
-    if ((end - start) > 10)
-    println("Time taken --> " + (end - start))
-
-    a*/
-
     var i = 0
     var nearest = Double.MaxValue
     var yIndx = -1
