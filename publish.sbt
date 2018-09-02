@@ -3,11 +3,11 @@ import com.typesafe.sbt.pgp.PgpKeys.{publishLocalSigned, publishSigned, useGpg}
 
 
 
-ThisBuild / organization := "io.github.knolduslabs.ksai"
+ThisBuild / organization := "io.github.knolduslabs"
 ThisBuild / organizationName := "Knoldus"
 ThisBuild / organizationHomepage := Some(url("http://www.knoldus.com/"))
 
-sonatypeProfileName := "io.github.knolduslabs.ksai"
+sonatypeProfileName := "io.github.knolduslabs"
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
