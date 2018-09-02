@@ -26,3 +26,6 @@ libraryDependencies ++= Seq(
 )
 
 useGpg := true
+
+publishConfiguration := publishConfiguration.value.withOverwrite(true)
+publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
