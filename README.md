@@ -13,16 +13,16 @@ You can use the libraries through Maven central repository by adding the followi
 
 ```
     <dependency>
-        <groupId>com.github.haifengl</groupId>
- 	    <artifactId>smile-core</artifactId>
- 	    <version>1.5.1</version>
+        <groupId>io.github.knolduslabs.ksai</groupId>
+ 	    <artifactId>ksai</artifactId>
+ 	    <version>0.1</version>
     </dependency>
 ```
 
 Or in build.sbt
 
 ```
-    libraryDependencies += "com.github.haifengl" %% "smile-scala" % "1.5.1"
+    libraryDependencies += "io.github.knolduslabs.ksai" %% "ksai" % "0.1"
 ```
 
 Algorithms
