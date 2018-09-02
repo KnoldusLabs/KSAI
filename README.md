@@ -46,9 +46,9 @@ Below are some of the algorithms that has been implemented
 Committers
 -------------
 
-* **Pranjut Gogoi
-* **Girish Bharti
-* **Anuj Saxena
-* **Nitin Aggarwal
-* **Akshansh Jain
-* **Shubham Aggarwal
+* **Pranjut Gogoi**
+* **Girish Bharti**
+* **Anuj Saxena**
+* **Nitin Aggarwal**
+* **Akshansh Jain**
+* **Shubham Aggarwal**
