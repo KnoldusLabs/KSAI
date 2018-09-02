@@ -35,15 +35,5 @@ ThisBuild / publishTo := {
 }
 ThisBuild / publishMavenStyle := true
 
-/*
-credentials += Credentials(
-  "GnuPG Key ID",
-  "gpg",
-//  "8B40D21E2BF70C9F1E7EF445355915F766044FEA", // key identifier
-  "B99CAADDEB422F634C4E719EA9C961AFB244BDBD",
-  "ignored" // passwords are supplied by pinentry
-)*/
-
-//credentials += Credentials(Path.userHome / ".sbt" / "sonatype_credential")
-
-//skip in publish := true
+publishConfiguration := publishConfiguration.value.withOverwrite(true)
+publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
