@@ -3,7 +3,7 @@ import com.typesafe.sbt.pgp.PgpKeys.{publishLocalSigned, publishSigned, useGpg}
 
 
 
-ThisBuild / organization := "com.knoldus.ksai"
+ThisBuild / organization := "io.github.knolduslabs"
 ThisBuild / organizationName := "Knoldus"
 ThisBuild / organizationHomepage := Some(url("http://www.knoldus.com/"))
 
@@ -46,3 +46,5 @@ credentials += Credentials(
 
 //credentials += Credentials(Path.userHome / ".sbt" / "sonatype_credential")
 credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", "Gogoi", "Linkedlist@2")
+
+//skip in publish := true
