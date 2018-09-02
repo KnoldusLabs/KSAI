@@ -12,6 +12,7 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
   "NaiveBayes" should {
 
     "be able to test of learn method" in {
+      pending
       println("batch learn Multinomial")
       val crossValidation = CrossValidation(movieX.length, 10)
       var error = 0
@@ -48,6 +49,7 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
     }
 
     "be able to test of learn method, of class SequenceNaiveBayes" in {
+      pending
       println("batch learn Bernoulli")
       val crossValidation = CrossValidation(movieX.length, 10)
       var error = 0

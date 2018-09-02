@@ -134,6 +134,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "be able to apply separate files validation with LMS USPS" in {
+    pending
     val zipTrainingPath = getClass.getResource("/zip.train").getPath
     val zipTestPath = getClass.getResource("/zip.test").getPath
     val delimited: Delimited[String] = DelimitedParser.parse(zipTrainingPath)

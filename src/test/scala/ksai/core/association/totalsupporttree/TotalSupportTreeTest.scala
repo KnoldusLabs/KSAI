@@ -17,6 +17,7 @@ class TotalSupportTreeTest extends WordSpec with Matchers {
 
   "Total Support Tree" should {
     "get frequent items from pima file" in {
+      pending
       val data = Source.fromFile(getClass.getResource("/pima.D38.N768.C2").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 20)
@@ -27,6 +28,7 @@ class TotalSupportTreeTest extends WordSpec with Matchers {
     }
 
     "get frequent items from kosarak file" in {
+      pending
       val data = Source.fromFile(getClass.getResource("/kosarak.dat").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 1500)

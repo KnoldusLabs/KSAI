@@ -25,6 +25,7 @@ class KDActorSpec extends TestKit(ActorSystem("KDActor")) with ImplicitSender
     }
 
     "send back result as true" in {
+      pending
       val echo = system.actorOf(Props[KMeansActor])
       echo ! PruneDetail(Array(1.0, 2.0, 3.0), Array(.1, .2, .3),
         Array(Array(1.0, 2.0, 3.0), Array(4.0, 5.0, 6.0), Array(7.0, 8.0, 9.0)),
