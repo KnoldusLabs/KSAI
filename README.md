@@ -22,7 +22,7 @@ You can use the libraries through Maven central repository by adding the followi
 Or in build.sbt
 
 ```
-    libraryDependencies += "io.github.knolduslabs" %% "ksai_2.12" % "0.0.4"
+    libraryDependencies += "io.github.knolduslabs" %% "ksai" % "0.0.4"
 ```
 
 Algorithms
