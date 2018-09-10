@@ -4,10 +4,10 @@ import ksai.util.NumericFunctions
 
 object AdjustRandIndex {
 
-  private def getCount(y1: List[Int], y2: List[Int], label1: List[Int], label2: List[Int]) = {
-    (0 to label1.size - 1).toList.map {
+  private def getCount(y1: Array[Int], y2: Array[Int], label1: Array[Int], label2: Array[Int]) = {
+    (0 to label1.size - 1).toArray.map {
       case i =>
-        (0 to label2.size - 1).toList.map {
+        (0 to label2.size - 1).toArray.map {
           case j =>
             (y1.zip(y2)).foldLeft(0) {
               case (matchCount, (y1Value, y2Value)) =>
@@ -19,18 +19,18 @@ object AdjustRandIndex {
     }
   }
 
-  private def getCount1(count: List[List[Int]]) = {
+  private def getCount1(count: Array[Array[Int]]) = {
     count.map(_.sum)
   }
 
-  private def getCount2(count: List[List[Int]]) = {
+  private def getCount2(count: Array[Array[Int]]) = {
     count.tail.foldLeft(count.head) {
       case (count2Result, countValues) =>
         (count2Result zip countValues).map { case (c2r, cv) => c2r + cv }
     }
   }
 
-  private def getRand1(count: List[List[Int]], randFunc: (Double, Int) => Double) = {
+  private def getRand1(count: Array[Array[Int]], randFunc: (Double, Int) => Double) = {
     count.foldLeft(0.0) {
       case (result, crow) =>
         result + crow.foldLeft(result) {
@@ -39,27 +39,27 @@ object AdjustRandIndex {
     }
   }
 
-  private def getRand2a(count1: List[Int], randFunc: (Double, Int) => Double) = {
+  private def getRand2a(count1: Array[Int], randFunc: (Double, Int) => Double) = {
     count1.foldLeft(0.0) {
       case (result, cell) =>
       randFunc(result, cell)
     }
   }
 
-  private def getRand2b(count2: List[Int], randFunc: (Double, Int) => Double) = {
+  private def getRand2b(count2: Array[Int], randFunc: (Double, Int) => Double) = {
     count2.foldLeft(0.0) {
       case (result, cell) => randFunc(result, cell)
     }
   }
 
-  def measure(y1: List[Int], y2: List[Int]): Double = {
+  def measure(y1: Array[Int], y2: Array[Int]): Double = {
     if (y1.length != y2.length) {
       throw new IllegalArgumentException(s"The vector sizes don't match: ${y1.length} != ${y2.length}")
     }
 
-    val label1: List[Int] = y1.distinct
-    val label2: List[Int] = y2.distinct
-    val count: List[List[Int]] = getCount(y1, y2, label1, label2)
+    val label1: Array[Int] = y1.distinct
+    val label2: Array[Int] = y2.distinct
+    val count: Array[Array[Int]] = getCount(y1, y2, label1, label2)
 
     val count1 = getCount1(count)
     val count2 = getCount2(count)
@@ -90,14 +90,14 @@ object AdjustRandIndex {
     rand
   }
 
-  def measureRand(y1: List[Int], y2: List[Int]): Double = {
+  def measureRand(y1: Array[Int], y2: Array[Int]): Double = {
     if (y1.length != y2.length) {
       throw new IllegalArgumentException(String.format(s"The vector sizes don't match: ${y1.length} != ${y2.length}"))
     }
 
-    val label1: List[Int] = y1.distinct
-    val label2: List[Int] = y2.distinct
-    val count: List[List[Int]] = getCount(y1, y2, label1, label2)
+    val label1: Array[Int] = y1.distinct
+    val label2: Array[Int] = y2.distinct
+    val count: Array[Array[Int]] = getCount(y1, y2, label1, label2)
 
     val count1 = getCount1(count)
     val count2 = getCount2(count)

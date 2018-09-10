@@ -71,6 +71,7 @@ class LogisticRegressionTest extends WordSpec with Matchers{
     }
 
     "be able to test segment" in {
+      pending
       println("segment test")
 
       val trainARFF = getClass.getResource("/segment-challenge.arff").getPath
@@ -95,6 +96,7 @@ class LogisticRegressionTest extends WordSpec with Matchers{
     }
 
     "be able to test USPS" in {
+      pending
       println("USPS")
       val zipTrainingPath = getClass.getResource("/zip.train").getPath
       val zipTestPath = getClass.getResource("/zip.test").getPath

@@ -52,7 +52,7 @@ class DecisionTreeTest extends WordSpec with Matchers {
       val lblMap = trainFile.labelMap
       val y = testFile.data.toArray.map(_.toArray)
       val y1 = testFile.target.map(x => lblMap(x))
-
+      
       val dTree = DecisionTree(None, x, x1, 350, SplitRule.ENTROPY)
 
       val error = y.indices.map{ index =>

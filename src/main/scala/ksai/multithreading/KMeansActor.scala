@@ -30,35 +30,40 @@ class KMeansActor extends Actor {
       }
       sender() ! pruneResult
 
-    case FindCentroidDistance(centroids: List[List[Double]], dataIndex: Int, dt: List[Double]) =>
+    case FindCentroidDistance(centroids: Array[Array[Double]], dataIndex: Int, dt: Array[Double]) =>
       val result = findDistanceFromCentroid(centroids, dataIndex, dt)
       sender() ! result
   }
 
-  private def findDistanceFromCentroid(centroids: List[List[Double]], dataIndex: Int, dt: List[Double]) = {
-    centroids.zipWithIndex.foldLeft((-1, Double.MaxValue)) {
-      case ((yIndex, nearest), (cents, centIndx)) =>
-        val squredDistance = NumericFunctions.squaredDistance(dt, cents)
-        if (nearest > squredDistance) {
-          (centIndx, squredDistance)
-        } else {
-          (yIndex, nearest)
-        }
+  private def findDistanceFromCentroid(centroids: Array[Array[Double]], dataIndex: Int, dt: Array[Double]): (Int, Double) = {
+    var i = 0
+    var nearest = Double.MaxValue
+    var yIndx = -1
+    while (i < centroids.length) {
+      val squaredDistance = NumericFunctions.squaredDistance(dt, centroids(i))
+      if (nearest > squaredDistance) {
+        yIndx = i
+        nearest = squaredDistance
+      }
+
+      i += 1
     }
+
+    (yIndx, nearest)
   }
 
 }
 
 case class PruneDetail(
-                        center: List[Double],
-                        radius: List[Double],
-                        centroids: List[List[Double]],
+                        center: Array[Double],
+                        radius: Array[Double],
+                        centroids: Array[Array[Double]],
                         bestIndex: Int,
                         testIndex: Int
                       )
 
 case class FindCentroidDistance(
-                                 centroids: List[List[Double]],
+                                 centroids: Array[Array[Double]],
                                  dataIndex: Int,
-                                 dt: List[Double]
+                                 dt: Array[Double]
                                )

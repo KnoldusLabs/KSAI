@@ -11,6 +11,7 @@ import breeze.linalg._
 class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits {
 
   "A Network for Regression" should "be able to apply k-fold validation with Logistic Sigmoid" in {
+    pending
     val arffFile = getClass.getResource("/cpu.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffFile)
     val inputNodesNum = arff.data.head.size

@@ -34,7 +34,7 @@ class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits
   "FP-Growth" should {
 
     "learn with 0 arguments" in {
-
+      pending
       val fPGrowth = FPGrowth(itemsets, 3)
       val eventualResults = fPGrowth.learn()
 
@@ -42,6 +42,7 @@ class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits
     }
 
     "learn with values in Pima file" in {
+      pending
       val data = Source.fromFile(getClass.getResource("/pima.D38.N768.C2").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 20)
@@ -52,6 +53,7 @@ class FPGrowthTest extends AsyncWordSpec with Matchers with ValidationImplicits
     }
 
     "learn with values in Kosarak file" in {
+      pending
       val data = Source.fromFile(getClass.getResource("/kosarak.dat").getPath).getLines().map(_.split(" ").map(_.toInt)).toArray
 
       val fPGrowth = FPGrowth(data, 1500)

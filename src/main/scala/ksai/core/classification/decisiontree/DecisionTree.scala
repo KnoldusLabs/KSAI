@@ -11,30 +11,47 @@ import scala.annotation.tailrec
 
 class DecisionTree(
                     trainingInstances: Array[Array[Double]],
-                    labels: Array[Int],
+                    val labels: Array[Int],
                     val importance: Array[Double],
                     val order: Array[Option[Array[Int]]],
                     root: Node,
                     val attributes: Array[Attribute],
+                    val mtry: Int,
                     splitRule: SplitRule = SplitRule.GINI,
                     val nodeSize: Int = 1,
                     maxNodes: Int = 100,
                     maybeSamples: Option[Array[Int]] = None,
-                    val noOfClasses: Int = 2) {
-
-  val mtry: Int = trainingInstances(0).length
+                    val noOfClasses: Int = 2
+                  ) {
 
   def impurity(count: Array[Int], n: Int): Double = splitRule match {
     case SplitRule.GINI =>
-      1.0 - count.map { labelCount =>
-        if (labelCount > 0) Math.pow(labelCount / n.toDouble, 2) else 0.0
-      }.sum
+      var impurity = 1.0
+      var i = 0
+      while (i < count.length) {
+        val countElement = count(i)
+        if (countElement > 0) {
+          val p = countElement.toDouble / n
+          impurity -= p * p
+        }
+        i += 1
+      }
+
+      impurity
 
     case SplitRule.ENTROPY =>
-      0.0 - count.map { labelCount =>
-        val p = labelCount.toDouble / n
-        if (labelCount > 0) p * (Math.log(p) / Math.log(2)) else 0.0
-      }.sum
+      var impurity = 0.0
+      var i = 0
+      while (i < count.length) {
+        val countElement = count(i)
+        if (countElement > 0) {
+          val p = countElement.toDouble / n
+          impurity -= p * (Math.log(p) / Math.log(2))
+        }
+        i += 1
+      }
+
+      impurity
 
     case SplitRule.CLASSIFICATION_ERROR =>
       val maxCount = count.map { labelCount =>
@@ -151,23 +168,22 @@ object DecisionTree {
     }
 
     val attributes = maybeAttributes.fold {
-      trainingInstances(0).zipWithIndex.map { case (_, index) =>
+      trainingInstances(0).indices.map { index =>
         Attribute(`type` = NUMERIC, name = "V" + (index + 1))
-      }
+      }.toArray
     }(identity)
 
     val order = maybeOrder.fold {
-      attributes.zipWithIndex.map { case (attribute, index) =>
-        attribute.`type` match {
+      attributes.indices.map { index =>
+        attributes(index).`type` match {
           case NUMERIC =>
             val n = trainingInstances.length
-            val a = (0 until n).map { i =>
-              trainingInstances(i)(index)
-            }.toArray
-            Option(a.zipWithIndex.sortBy(_._1).map(_._2))
-          case _       => None
+            val a = new Array[(Double, Int)](n)
+            (0 until n).foreach(i => a(i) = (trainingInstances(i)(index), i))
+            Option(a.sortBy(_._1).map(_._2))
+          case _ => None
         }
-      }
+      }.toArray
     }(identity)
 
     val count = maybeSamples.fold {
@@ -184,7 +200,7 @@ object DecisionTree {
 
     val trainRoot = TrainNode(root, trainingInstances, labels, samples)
 
-    val decisionTree = new DecisionTree(trainingInstances, labels, new Array[Double](attributes.length), order, root, attributes, splitRule = splitRule, nodeSize = nodeSize, maxNodes = maxNodes, noOfClasses = noOfClasses)
+    val decisionTree = new DecisionTree(trainingInstances, labels, new Array[Double](attributes.length), order, root, attributes, mtry, splitRule = splitRule, nodeSize = nodeSize, maxNodes = maxNodes, noOfClasses = noOfClasses)
 
     val nextSplits = new java.util.PriorityQueue[TrainNode]()
 
@@ -197,40 +213,30 @@ object DecisionTree {
     decisionTree
   }
 
-  private def checkForNegativeAndMissingValues(uniqueLabels: Array[Int]): Boolean = {
-
-    @tailrec
-    def iterateListForCheck(list: Array[Int]): Boolean =
-      if (list.length > 1) {
-        val head = list.head
-        val tail = list.tail
-
-        if (head < 0) throw new IllegalArgumentException("Negative class label: " + head)
-        if (tail.head - head > 1) throw new IllegalArgumentException("Missing class label: " + (head + 1))
-
-        iterateListForCheck(tail)
-      } else {
-        true
+  private def checkForNegativeAndMissingValues(uniqueLabels: Array[Int]): Unit = {
+    uniqueLabels.indices.foreach { i =>
+      if (uniqueLabels(i) < 0) {
+        throw new IllegalArgumentException("Negative class label: " + uniqueLabels(i))
       }
 
-    iterateListForCheck(uniqueLabels)
+      if (i > 0 && uniqueLabels(i) - uniqueLabels(i - 1) > 1) {
+        throw new IllegalArgumentException("Missing class: " + (uniqueLabels(i) + 1))
+      }
+    }
   }
 
-  @tailrec
   private def splitBestLeaf(currentLeaves: Int,
                             maxNodes: Int,
                             nextSplits: java.util.PriorityQueue[TrainNode],
                             decisionTree: DecisionTree)(implicit actorSystem: ActorSystem, timeout: Timeout): Boolean = {
-    if (currentLeaves >= maxNodes) {
-      true
-    } else {
-      try {
+    try {
+      (1 to maxNodes).foreach { _ =>
         val node = nextSplits.poll()
         node.split(Option(nextSplits), decisionTree)
-      } catch {
-        case _: NoSuchElementException => return true
       }
-      splitBestLeaf(currentLeaves + 1, maxNodes, nextSplits, decisionTree)
+      true
+    } catch {
+      case _ => false
     }
   }
 }
