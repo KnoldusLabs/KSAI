@@ -1,6 +1,6 @@
 package ksai.core.classification
 
-import ksai.data.parser.{ARFFParser, DelimitedParserRefactored}
+import ksai.data.parser.{ARFFParser, DelimitedParser}
 import ksai.validation.LOOCV
 import org.scalatest.{Matchers, WordSpec}
 
@@ -101,9 +101,9 @@ class LogisticRegressionTest extends WordSpec with Matchers{
       val zipTrainingPath = getClass.getResource("/zip.train").getPath
       val zipTestPath = getClass.getResource("/zip.test").getPath
 
-      val delimitedParserRefactored = new DelimitedParserRefactored(0)
-      val trainData = delimitedParserRefactored.parse(zipTrainingPath)
-      val testData = delimitedParserRefactored.parse(zipTestPath)
+      val delimitedParser = new DelimitedParser(0)
+      val trainData = delimitedParser.parse(zipTrainingPath)
+      val testData = delimitedParser.parse(zipTestPath)
 
       val trainX = trainData.data.toArray
       val trainY = trainData.getNumericTargets.toArray

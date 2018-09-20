@@ -1,6 +1,5 @@
 package ksai.core.projection
 
-import ksai.data.parser.{ARFFParser, Delimited, DelimitedParser}
 import ksai.training.validation.ValidationImplicits
 import org.scalatest.{FlatSpec, Matchers}
 

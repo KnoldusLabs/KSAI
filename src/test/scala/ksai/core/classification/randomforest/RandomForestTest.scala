@@ -43,8 +43,9 @@ class RandomForestTest extends WordSpec with Matchers {
     "zip files" in {
       val zipTrainFile = getClass.getResource("/zip.train").getPath
       val zipTestFile = getClass.getResource("/zip.test").getPath
-      val trainFile = DelimitedParser.parseZip(zipTrainFile)
-      val testFile = DelimitedParser.parseZip(zipTestFile)
+      val delimitedParser = new DelimitedParser(0)
+      val trainFile = delimitedParser.parse(zipTrainFile)
+      val testFile = delimitedParser.parse(zipTestFile)
       val x = trainFile.data.toArray.map(_.toArray)
       val x1 = trainFile.getNumericTargets.toArray
       val lblMap = trainFile.labelMap

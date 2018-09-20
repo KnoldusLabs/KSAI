@@ -1,0 +1,16 @@
+Fill in the **Details** section, then delete these instructions.
+Submit the PR with your detailed description.
+*After* submitting, you can check the boxes in the **Checklist** below.
+
+**Details**
+
+### Checklist
+The PR will not be accepted until all boxes are checked or an
+explanation is provided as to why the box cannot be checked.  
+
+- [ ] Provided pull request details
+- [ ] Socialized this solution with the team
+- [ ] Performed manual tests
+- [ ] Added/Updated Unit Test
+- [ ] Added/Updated Scaladoc
+- [ ] Made at least one improvement to existing documentation

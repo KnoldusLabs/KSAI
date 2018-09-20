@@ -1,11 +1,9 @@
 package ksai.core.regression
 
 import breeze.linalg.DenseMatrix
-import ksai.data.parser.{ARFF, ARFFParser, Delimited, DelimitedParser}
+import ksai.data.parser.{ARFF, ARFFParser}
 import ksai.training.validation.ValidationImplicits
 import org.scalatest.{FlatSpec, Matchers}
-import breeze.stats._
-import breeze.linalg._
 
 
 class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits {
@@ -14,7 +12,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
     pending
     val arffFile = getClass.getResource("/cpu.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffFile)
-    val inputNodesNum = arff.data.head.size
+    val inputNodesNum = arff.data.head.length
     val allNetworkAndError = arff.kFoldRegression(13) {
       case (trainingSet, target, validationSet, validationTarget) => {
         val network = Network(inputNodesNum, 10, 10, 1)
@@ -38,7 +36,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   it should "be able to apply k-fold validation with TANH" in {
     val arffFile = getClass.getResource("/cpu.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffFile)
-    val inputNodesNum = arff.data.head.size
+    val inputNodesNum = arff.data.head.length
     val allNetworkAndError = arff.kFoldRegression(13) {
       case (trainingSet, target, validationSet, validationTarget) => {
         val network = Network(TANH, inputNodesNum, 10, 10, 1)

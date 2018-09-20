@@ -1,6 +1,6 @@
 package ksai.core.feature
 
-import ksai.data.parser.{ARFFParser, Delimited, DelimitedParser}
+import ksai.data.parser.ARFFParser
 import ksai.training.validation.ValidationImplicits
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -13,7 +13,7 @@ class SingleNoiseRatioTest extends FlatSpec with Matchers with ValidationImplici
     val arffFile = getClass.getResource("/iris.arff").getPath
     val arff = ARFFParser.parse(arffFile)
     val y = arff.getNumericTargets.to[ArrayBuffer]
-    (0 to y.length - 1).foreach { index =>
+    y.indices.foreach { index =>
       if (y(index) < 2) {
         y(index) = 0
       } else {
