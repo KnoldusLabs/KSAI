@@ -9,12 +9,14 @@ import org.scalatest.{FlatSpec, Matchers}
 class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits {
 
 
-  "A Network" should "select a Activation functional automatically for given error function" in {
+  "A Network for Classification" should "select a Activation functional automatically for given error function" in {
+
     val net = Network(LeastMeanSquares, 5, 4, 3, 2)
     net.activationFunction should be theSameInstanceAs LogisticSigmoid
   }
 
   it should "generate random values for weight" in {
+
     val net = Network(LeastMeanSquares, 5, 4, 3, 2)
     println(net.net.last.weight)
     println()
@@ -22,6 +24,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "Create a network when passed densematrix and its a temoporary test case" in {
+
     val arffFile = getClass.getResource("/iris.arff").getPath
     val arff = ARFFParser.parse(arffFile)
     val inputNodesNum = arff.data.head.length
@@ -32,6 +35,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "be able to apply k-fold validation with CrossEntropy and SoftMax" in {
+
     val arffFile = getClass.getResource("/iris.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffFile)
     val inputNodesNum = arff.data.head.length
@@ -52,6 +56,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "be able to apply k-fold validation with CrossEntropy and LogisticSigmoid" in {
+
     val arffFile = getClass.getResource("/iris.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffFile)
     val inputNodesNum = arff.data.head.length
@@ -72,6 +77,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "be able to apply separate files validation" in {
+
     val arffSegmentChallenge = getClass.getResource("/segment-challenge.arff").getPath
     val arffSegmentTest = getClass.getResource("/segment-test.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffSegmentChallenge)
@@ -90,6 +96,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "be able to apply separate files validation with LMS" in {
+
     val arffSegmentChallenge = getClass.getResource("/segment-challenge.arff").getPath
     val arffSegmentTest = getClass.getResource("/segment-test.arff").getPath
     val arff: ARFF[String] = ARFFParser.parse(arffSegmentChallenge)
@@ -108,6 +115,7 @@ class NeuralNetworkTest extends FlatSpec with Matchers with ValidationImplicits 
   }
 
   it should "be able to apply separate files validation with USPS" in {
+
     pending //TODO:fix me
     val zipTrainingPath = getClass.getResource("/zip.train").getPath
     val zipTestPath = getClass.getResource("/zip.test").getPath

@@ -3,7 +3,7 @@ package ksai.core.classification.decisiontree
 import akka.actor.ActorSystem
 import akka.util.Timeout
 import ksai.data.parser.{ARFFParser, DelimitedParser}
-import ksai.training.validation.LOOCV
+import ksai.validation.LOOCV
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.mutable.ArrayBuffer

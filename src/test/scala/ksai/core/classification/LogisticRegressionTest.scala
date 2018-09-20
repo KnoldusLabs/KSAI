@@ -1,7 +1,7 @@
 package ksai.core.classification
 
 import ksai.data.parser.{ARFFParser, DelimitedParser}
-import ksai.training.validation.LOOCV
+import ksai.validation.LOOCV
 import org.scalatest.{Matchers, WordSpec}
 
 class LogisticRegressionTest extends WordSpec with Matchers{

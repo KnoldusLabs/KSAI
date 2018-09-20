@@ -1,9 +1,9 @@
 package ksai.core.classification
 
 import ksai.data.parser._
-import ksai.training.validation.{LOOCV, ValidationImplicits}
+import ksai.training.validation.ValidationImplicits
+import ksai.validation.LOOCV
 import org.scalatest.{FlatSpec, Matchers}
-
 import scala.collection.mutable.ArrayBuffer
 
 
