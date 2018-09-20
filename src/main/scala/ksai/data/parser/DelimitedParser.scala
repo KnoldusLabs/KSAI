@@ -3,52 +3,18 @@ package ksai.data.parser
 import scala.collection.mutable
 import scala.io.Source
 
-object DelimitedParser {
+/**
+  * Parse a file containing delimited data only (no column name or any details)
+  * @param responseIndex index where responses are stored (by default it takes last index as response index)
+  * @param delimiter can be a whitespace or a comma by which data is delimited
+  * @param labelMap map containing the order of responses (to be used while testing data)
+  */
+class DelimitedParser(responseIndex: Int = -1, delimiter: String = "\\s+", labelMap: mutable.Map[String, Int] = mutable.Map.empty[String, Int]){
 
   def parse(filename: String): Delimited[String] = {
     val sourceBuffer = Source.fromFile(filename)
 
     val result = sourceBuffer.getLines.foldLeft(Delimited[String]()) {
-      case (delimited, line) =>
-        if (line.trim.startsWith("%") || line.trim.equals("")) {
-          delimited
-        } else {
-          val splittedData = line.trim.split("\\s+").map(_.trim)
-          val newData = delimited.data :+ splittedData.dropRight(1).map(_.toDouble)
-          val newTarget = delimited.target :+ splittedData.last
-          delimited.copy(data = newData, target = newTarget)
-        }
-    }
-    sourceBuffer.close()
-    result.copy(labels = result.target.distinct)
-  }
-
-  def parseZip(filename: String): Delimited[String] = {
-    val sourceBuffer = Source.fromFile(filename)
-
-    val result = sourceBuffer.getLines.foldLeft(Delimited[String]()) {
-      case (delimited, line) =>
-        if (line.trim.startsWith("%") || line.trim.equals("")) {
-          delimited
-        } else {
-          val splittedData = line.trim.split("\\s+").map(_.trim)
-          val newData = delimited.data :+ splittedData.drop(1).map(_.toDouble)
-          val newTarget = delimited.target :+ splittedData.head
-          delimited.copy(data = newData, target = newTarget)
-        }
-    }
-    sourceBuffer.close()
-    result.copy(labels = result.target.distinct)
-  }
-
-}
-
-class DelimitedParserRefactored(responseIndex: Int, delimiter: String = "\\s+", labelMap: mutable.Map[String, Int] = mutable.Map.empty[String, Int]){
-
-  def parse(filename: String): DelimitedRefactored[String] = {
-    val sourceBuffer = Source.fromFile(filename)
-
-    val result = sourceBuffer.getLines.foldLeft(DelimitedRefactored[String]()) {
       case (delimited, line) =>
         if (line.trim.startsWith("%") || line.trim.equals("")) {
           delimited
@@ -60,8 +26,15 @@ class DelimitedParserRefactored(responseIndex: Int, delimiter: String = "\\s+", 
             if(i < responseIndex) data(i) = splitData(i).toDouble
             else data(i) = splitData(i + 1).toDouble
           }
+
+          val response = if (responseIndex >= 0) {
+            splitData(responseIndex)
+          } else {
+            splitData.last
+          }
+
           val newData = delimited.data :+ data
-          val newTarget = delimited.target :+ splitData(responseIndex)
+          val newTarget = delimited.target :+ response
           delimited.copy(data = newData, target = newTarget)
         }
     }

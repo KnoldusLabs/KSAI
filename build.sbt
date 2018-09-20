@@ -4,11 +4,11 @@ import scoverage.ScoverageKeys._
 
 name := "ksai"
 
-version := "0.1"
+version := "0.0.4"
 
 scalaVersion := "2.12.6"
 
-organization in ThisBuild := "ksai"
+//organization in ThisBuild := "ksai"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
 
@@ -26,3 +26,6 @@ libraryDependencies ++= Seq(
 )
 
 useGpg := true
+
+publishConfiguration := publishConfiguration.value.withOverwrite(true)
+publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
