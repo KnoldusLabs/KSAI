@@ -1,7 +1,6 @@
 package ksai.core.projection
 
-import ksai.data.parser.{ARFFParser, Delimited, DelimitedParser}
-import ksai.training.validation.{LOOCV, ValidationImplicits}
+import ksai.training.validation.ValidationImplicits
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable.ArrayBuffer

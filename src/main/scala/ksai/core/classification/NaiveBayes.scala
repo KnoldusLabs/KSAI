@@ -71,30 +71,6 @@ case class NaiveBayes(
   }
 
   /**
-    * Update conditional probabilities.
-    */
-  def update(): Unit = {
-    if (!predefinedPriori) for (iterator <- 0 until classCount) {
-      priori(iterator) = (instancesInEachClass(iterator) + EPSILON) / (instanceCount + classCount * EPSILON)
-    }
-
-    model match {
-      case MULTINOMIAL =>
-        for (outerIterator <- 0 until classCount) {
-          for (innerIterator <- 0 until independentVariablesCount) {
-            condprob(outerIterator)(innerIterator) = (ntc(outerIterator)(innerIterator) + sigma) / (termsInEachClass(outerIterator) + sigma * independentVariablesCount)
-          }
-        }
-      case _ =>
-        for (outerIterator <- 0 until classCount) {
-          for (innerIterator <- 0 until independentVariablesCount) {
-            condprob(outerIterator)(innerIterator) = (ntc(outerIterator)(innerIterator) + sigma) / (termsInEachClass(outerIterator) + sigma * 2)
-          }
-        }
-    }
-  }
-
-  /**
     * Online learning of naive Bayes classifier on a sequence,
     * which is modeled as a bag of words. Note that this method is NOT
     * applicable for naive Bayes classifier with general generation model.
@@ -150,15 +126,11 @@ case class NaiveBayes(
           this.instancesInEachClass(labels(outerIterator)) = instancesInEachClass(labels(outerIterator)) + 1
         }
       case BERNOULLI =>
-        for {
-          outerIterator <- instances.indices
-        } yield {
+        instances.indices.foreach { outerIterator =>
           if (instances(outerIterator).length != independentVariablesCount) {
             throw new IllegalArgumentException("Invalid input vector size: " + instances(outerIterator).length)
           }
-          for {
-            innerIterator <- 0 until independentVariablesCount
-          } yield {
+          (0 until independentVariablesCount).foreach { innerIterator =>
             if (instances(outerIterator)(innerIterator) > 0) {
               this.ntc(labels(outerIterator))(innerIterator) = this.ntc(labels(outerIterator))(innerIterator) + 1
             }
@@ -170,6 +142,30 @@ case class NaiveBayes(
     }
 
     update()
+  }
+
+  /**
+    * Update conditional probabilities.
+    */
+  def update(): Unit = {
+    if (!predefinedPriori) for (iterator <- 0 until classCount) {
+      priori(iterator) = (instancesInEachClass(iterator) + EPSILON) / (instanceCount + classCount * EPSILON)
+    }
+
+    model match {
+      case MULTINOMIAL =>
+        for (outerIterator <- 0 until classCount) {
+          for (innerIterator <- 0 until independentVariablesCount) {
+            condprob(outerIterator)(innerIterator) = (ntc(outerIterator)(innerIterator) + sigma) / (termsInEachClass(outerIterator) + sigma * independentVariablesCount)
+          }
+        }
+      case _ =>
+        for (outerIterator <- 0 until classCount) {
+          for (innerIterator <- 0 until independentVariablesCount) {
+            condprob(outerIterator)(innerIterator) = (ntc(outerIterator)(innerIterator) + sigma) / (termsInEachClass(outerIterator) + sigma * 2)
+          }
+        }
+    }
   }
 
   /**
@@ -324,22 +320,22 @@ case class NaiveBayes(
 }
 
 object NaiveBayes {
-  def apply(
-                   serialVersionUID: Long = 1L,
-                   EPSILON: Double = 1E-20,
-                   model: Model,
-                   classCount: Int,
-                   independentVariablesCount: Int,
-                   priori: Array[Double] = Array.emptyDoubleArray,
-                   prob: Array[Array[Distribution]] = Array.empty,
-                   sigma: Double = 1.0,
-                   predefinedPriori: Boolean = false,
-                   instanceCount: Int = 0,
-                   instancesInEachClass: Array[Int] = Array.emptyIntArray,
-                   termsInEachClass: Array[Int] = Array.emptyIntArray,
-                   ntc: Array[Array[Int]] = Array.empty,
-                   condprob: Array[Array[Double]] = Array.empty
-                 ): NaiveBayes = {
+
+  def apply(serialVersionUID: Long = 1L,
+            EPSILON: Double = 1E-20,
+            model: Model,
+            classCount: Int,
+            independentVariablesCount: Int,
+            priori: Array[Double] = Array.emptyDoubleArray,
+            prob: Array[Array[Distribution]] = Array.empty,
+            sigma: Double = 1.0,
+            predefinedPriori: Boolean = false,
+            instanceCount: Int = 0,
+            instancesInEachClass: Array[Int] = Array.emptyIntArray,
+            termsInEachClass: Array[Int] = Array.emptyIntArray,
+            ntc: Array[Array[Int]] = Array.empty,
+            condprob: Array[Array[Double]] = Array.empty
+           ): NaiveBayes = {
 
 
     if (independentVariablesCount <= 0) {
@@ -354,7 +350,7 @@ object NaiveBayes {
       throw new IllegalArgumentException("Invalid number of classes: " + classCount)
     }
 
-    if(priori.nonEmpty) {
+    if (priori.nonEmpty) {
       if (priori.length < 2) {
         throw new IllegalArgumentException("Invalid number of classes: " + priori.length)
       }
@@ -370,8 +366,8 @@ object NaiveBayes {
       }
     }
 
-    val newPriori = if(priori.nonEmpty) priori else new Array[Double](classCount)
-    val newNtc = if(ntc.nonEmpty) ntc else Array.ofDim[Int](classCount, independentVariablesCount)
+    val newPriori = if (priori.nonEmpty) priori else new Array[Double](classCount)
+    val newNtc = if (ntc.nonEmpty) ntc else Array.ofDim[Int](classCount, independentVariablesCount)
 
     new NaiveBayes(
       serialVersionUID = serialVersionUID,
@@ -380,14 +376,14 @@ object NaiveBayes {
       classCount = classCount,
       independentVariablesCount = independentVariablesCount,
       priori = newPriori,
-      prob = if(prob.nonEmpty) prob else Array.ofDim[Distribution](classCount, independentVariablesCount),
+      prob = if (prob.nonEmpty) prob else Array.ofDim[Distribution](classCount, independentVariablesCount),
       sigma = sigma,
       predefinedPriori = predefinedPriori,
       instanceCount = instanceCount,
-      instancesInEachClass = if(instancesInEachClass.nonEmpty) instancesInEachClass else new Array[Int](classCount),
-      termsInEachClass = if(termsInEachClass.nonEmpty) termsInEachClass else new Array[Int](classCount),
+      instancesInEachClass = if (instancesInEachClass.nonEmpty) instancesInEachClass else new Array[Int](classCount),
+      termsInEachClass = if (termsInEachClass.nonEmpty) termsInEachClass else new Array[Int](classCount),
       ntc = newNtc,
-      condprob = if(condprob.nonEmpty) condprob else Array.ofDim[Double](classCount, independentVariablesCount))
+      condprob = if (condprob.nonEmpty) condprob else Array.ofDim[Double](classCount, independentVariablesCount))
   }
 
 
@@ -419,32 +415,25 @@ object NaiveBayesTrainer {
     commonApply(model, classCount, independentVariablesCount, new Array[Double](classCount))
   }
 
-  def commonApply(model: Model, classCount: Int, independentVariablesCount: Int, priori: Array[Double]) = {
-    new NaiveBayesTrainer(model, classCount, independentVariablesCount, priori)
-  }
-
   def apply(model: Model, classCount: Int, independentVariablesCount: Int, priori: Array[Double]) = {
-    if (independentVariablesCount <= 0) {
-      throw new IllegalArgumentException("Invalid dimension: " + independentVariablesCount)
-    }
+    if (independentVariablesCount <= 0) throw new IllegalArgumentException("Invalid dimension: " + independentVariablesCount)
+    if (priori.length < 2) throw new IllegalArgumentException("Invalid number of classes: " + priori.length)
 
-    if (priori.length < 2) {
-      throw new IllegalArgumentException("Invalid number of classes: " + priori.length)
-    }
-
-    val sum = priori.map {
-      value =>
-        if (value <= 0.0 || value >= 1) {
-          throw new IllegalArgumentException("Invalid priori probability: " + value)
-        } else value
+    val sum = priori.map { value =>
+      if (value <= 0.0 || value >= 1) {
+        throw new IllegalArgumentException("Invalid priori probability: " + value)
+      } else {
+        value
+      }
     }.sum
 
-    if (Math.abs(sum - 1.0) > 1E-10) {
-      throw new IllegalArgumentException("The sum of priori probabilities is not one: " + sum)
-    }
+    if (Math.abs(sum - 1.0) > 1E-10) throw new IllegalArgumentException("The sum of priori probabilities is not one: " + sum)
 
     commonApply(model, priori.length, independentVariablesCount, priori)
+  }
 
+  def commonApply(model: Model, classCount: Int, independentVariablesCount: Int, priori: Array[Double]) = {
+    new NaiveBayesTrainer(model, classCount, independentVariablesCount, priori)
   }
 }
 

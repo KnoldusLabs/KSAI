@@ -1,6 +1,20 @@
-package ksai.training.validation
+package ksai.validation
 
 import scala.util.Random
+
+/**
+  * Cross-validation is a technique for assessing how the results of a
+  * statistical analysis will generalize to an independent data set.
+  * It is mainly used in settings where the goal is prediction, and one
+  * wants to estimate how accurately a predictive model will perform in
+  * practice. One round of cross-validation involves partitioning a sample
+  * of data into complementary subsets, performing the analysis on one subset
+  * (called the training set), and validating the analysis on the other subset
+  * (called the validation set or testing set). To reduce variability, multiple
+  * rounds of cross-validation are performed using different partitions, and the
+  * validation results are averaged over the rounds.
+  *
+  */
 
 case class CrossValidation(chunks: Int,
                            train: Array[Array[Int]],

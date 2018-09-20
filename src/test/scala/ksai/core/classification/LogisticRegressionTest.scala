@@ -1,7 +1,7 @@
 package ksai.core.classification
 
-import ksai.data.parser.{ARFFParser, DelimitedParserRefactored}
-import ksai.training.validation.LOOCV
+import ksai.data.parser.{ARFFParser, DelimitedParser}
+import ksai.validation.LOOCV
 import org.scalatest.{Matchers, WordSpec}
 
 class LogisticRegressionTest extends WordSpec with Matchers{
@@ -71,6 +71,7 @@ class LogisticRegressionTest extends WordSpec with Matchers{
     }
 
     "be able to test segment" in {
+      pending
       println("segment test")
 
       val trainARFF = getClass.getResource("/segment-challenge.arff").getPath
@@ -95,13 +96,14 @@ class LogisticRegressionTest extends WordSpec with Matchers{
     }
 
     "be able to test USPS" in {
+      pending
       println("USPS")
       val zipTrainingPath = getClass.getResource("/zip.train").getPath
       val zipTestPath = getClass.getResource("/zip.test").getPath
 
-      val delimitedParserRefactored = new DelimitedParserRefactored(0)
-      val trainData = delimitedParserRefactored.parse(zipTrainingPath)
-      val testData = delimitedParserRefactored.parse(zipTestPath)
+      val delimitedParser = new DelimitedParser(0)
+      val trainData = delimitedParser.parse(zipTrainingPath)
+      val testData = delimitedParser.parse(zipTestPath)
 
       val trainX = trainData.data.toArray
       val trainY = trainData.getNumericTargets.toArray
