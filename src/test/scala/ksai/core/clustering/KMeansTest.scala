@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.MultivariateGaussian
 import ksai.core.cluster.KMeans
-import ksai.data.parser.{Delimited, DelimitedParser}
+import ksai.data.parser.DelimitedParser
 import ksai.training.validation.{AdjustRandIndex, ValidationImplicits}
 import ksai.validation.RandIndex
 import org.scalatest.{AsyncFlatSpec, Matchers}
@@ -37,44 +37,42 @@ class KMeansTest extends AsyncFlatSpec with Matchers with ValidationImplicits {
 
   implicit val actorSystem = ActorSystem("K-Means")
 
-  /*"K-Means" should "be able to apply separate files validation with LMS USPS" in {
-    pending
-    val zipTraingPath = getClass.getResource("/zip.train").getPath
+  "K-Means" should "be able to apply separate files validation with LMS USPS" in {
+    pending //TODO:fix me
+    val zipTrainingPath = getClass.getResource("/zip.train").getPath
     val zipTestPath = getClass.getResource("/zip.test").getPath
-    val delimited: Delimited[String] = DelimitedParser.parse(zipTraingPath)
-    val delimitedTest: Delimited[String] = DelimitedParser.parse(zipTestPath)
-    val inputNodesNum = delimited.data.head.size
+    val delimitedParser = new DelimitedParser(0)
+    val delimited = delimitedParser.parse(zipTrainingPath)
+    val testData = delimitedParser.parse(zipTestPath)
+    val inputNodesNum = delimited.data.head.length
 
-    KMeans(delimited.data.map(_.toList), 10, 10, 1).map {
-      case kmeans =>
-        val r1 = RandIndex.measure(delimited.getNumericTargets, kmeans.y)
-        println(".............done")
-        assert(r1 > 0.85)
+    KMeans(delimited.data.toArray, 10, 10, 1).map { kmeans =>
+      val r1 = RandIndex.measure(delimited.getNumericTargets, kmeans.y.toList)
+      println(".............done")
+      assert(r1 > 0.85)
     }
 
-  }*/
+  }
 
   "K-Means" should "be able to applicable to lloyd" in {
     pending
-    println("Lloyd 4");
-    KMeans(data, 4, 100).map {
-      case kmeans =>
-        val r = AdjustRandIndex.measure(label, kmeans.y)
-        val r2 = AdjustRandIndex.measureRand(label, kmeans.y)
-        println(s"Training rand index = ${100.0 * r} adjusted rand index = ${100.0 * r2}")
-        assert(r > r2)
+    println("Lloyd 4")
+    KMeans(data, 4, 100).map { kmeans =>
+      val r = AdjustRandIndex.measure(label, kmeans.y)
+      val r2 = AdjustRandIndex.measureRand(label, kmeans.y)
+      println(s"Training rand index = ${100.0 * r} adjusted rand index = ${100.0 * r2}")
+      assert(r > r2)
     }
   }
 
   "K-Means" should "be able to applicable to lloyd with 64" in {
     pending
-    println("Lloyd 4");
-    KMeans(data, 64, 100).map {
-      case kmeans =>
-        val r = AdjustRandIndex.measure(label, kmeans.y)
-        val r2 = AdjustRandIndex.measureRand(label, kmeans.y)
-        println(s"Training rand index = ${100.0 * r} adjusted rand index = ${100.0 * r2}")
-        assert(r > r2)
+    println("Lloyd 4")
+    KMeans(data, 64, 100).map { kmeans =>
+      val r = AdjustRandIndex.measure(label, kmeans.y)
+      val r2 = AdjustRandIndex.measureRand(label, kmeans.y)
+      println(s"Training rand index = ${100.0 * r} adjusted rand index = ${100.0 * r2}")
+      assert(r > r2)
     }
   }
 

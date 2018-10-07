@@ -1,6 +1,7 @@
 package ksai.core.classification
 
-import ksai.training.validation.{CrossValidation, LOOCV, ValidationImplicits}
+import ksai.training.validation.ValidationImplicits
+import ksai.validation.{CrossValidation, LOOCV}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.io.Source
@@ -12,11 +13,12 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
   "NaiveBayes" should {
 
     "be able to test of learn method" in {
-      pending
-      println("batch learn Multinomial")
+
+      info("batch learn Multinomial")
       val crossValidation = CrossValidation(movieX.length, 10)
       var error = 0
       var total = 0
+      var success = 0
 
       val startTime = new java.util.Date().getTime// For logging time only
 
@@ -37,23 +39,27 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
             if (testY(j) != label) {
               error = error + 1
             }
+            else{
+              success = success + 1
+            }
           }
         }
       }
 
       info(s"Time taken: ${new java.util.Date().getTime - startTime} millies")
-      info(s"Multinomial error is $error of total $total")
+      info(s"Multinomial error is $error and success is $success of total $total")
 
       assert(error < 265)
 
     }
 
     "be able to test of learn method, of class SequenceNaiveBayes" in {
-      pending
-      println("batch learn Bernoulli")
+
+      info("batch learn Bernoulli")
       val crossValidation = CrossValidation(movieX.length, 10)
       var error = 0
       var total = 0
+      var success = 0
 
       val startTime = new java.util.Date().getTime// For logging time only
 
@@ -73,6 +79,8 @@ class NaiveBayesTest extends WordSpec with Matchers with ValidationImplicits {
             total = total + 1
             if (testY(j) != label) {
               error = error + 1
+            } else {
+              success = success + 1
             }
           }
         }
@@ -100,8 +108,7 @@ object NaiveBayesTest {
   val x = new Array[Array[String]](2000)
 
   val resource = Source.fromFile("src/test/resources/movie.txt").getLines().toArray
-
-  (0 until 2000).foreach { itr =>
+  resource.indices.foreach { itr =>
     val value = resource(itr)
     val words = value.trim.split(" ")
     if (words(0).equalsIgnoreCase("pos")) {

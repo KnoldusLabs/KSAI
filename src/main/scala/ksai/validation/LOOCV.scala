@@ -1,6 +1,6 @@
-package ksai.training.validation
+package ksai.validation
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 //Leave-one-out cross validation
