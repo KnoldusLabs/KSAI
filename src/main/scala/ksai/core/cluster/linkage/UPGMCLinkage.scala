@@ -1,8 +1,16 @@
 package ksai.core.cluster.linkage
 
+
+/**
+  * Unweighted Pair Group Method using Centroids (also known as centroid linkage).
+  * The distance between two clusters is the Euclidean distance between their
+  * centroids, as calculated by arithmetic mean. Only valid for Euclidean
+  * distance based proximity matrix.
+  *
+  */
 case class UPGMCLinkage(proximity: Array[Array[Double]], samples: Array[Int]) extends Linkage {
 
-  override def toString: String = "UPGMC linkage"
+  override def toString = "UPGMC linkage"
 
   override def merge(firstClusterId: Int, secondClusterId: Int): Unit = {
     val sum = samples(firstClusterId) + samples(secondClusterId)

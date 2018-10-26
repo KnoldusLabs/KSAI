@@ -1,46 +1,55 @@
 package ksai.core.clustering
 
 import ksai.core.cluster.HierarchicalClustering
-import ksai.core.cluster.linkage.SingleLinkage
-import ksai.data.parser.DelimitedParserRefactored
+import ksai.core.cluster.linkage.{CompleteLinkage, SingleLinkage}
+import ksai.data.parser.DelimitedParser
 import ksai.training.validation.AdjustRandIndex
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
-class HierarchicalClusteringTest extends WordSpec with Matchers {
+class HierarchicalClusteringTest extends WordSpec with Matchers with BeforeAndAfterAll {
+
+  val zipTrainingPath = getClass.getResource("/zip.train").getPath
+  val delimitedParserRefactored = new DelimitedParser(0)
+  val trainData = delimitedParserRefactored.parse(zipTrainingPath)
+
+  val trainX: Array[Array[Double]] = trainData.data.toArray
+  val trainY: Array[Int] = trainData.getNumericTargets.toArray
+
+  val n = trainX.length
+
+  val proximity = new Array[Array[Double]](n)
+
+  (0 until n).foreach{ itr =>
+    proximity(itr) = new Array[Double](itr + 1)
+    (0 until itr).foreach{ innerItr =>
+      proximity(itr)(innerItr) = Math.distance(trainX(itr), trainX(innerItr))
+    }
+  }
 
   "HierarchicalClustering" should {
-    "be able to test USPS" in {
-      println("USPS")
-      val zipTrainingPath = getClass.getResource("/zip.train").getPath
-      val delimitedParserRefactored = new DelimitedParserRefactored(0)
-      val trainData = delimitedParserRefactored.parse(zipTrainingPath)
-
-      val trainX: Array[Array[Double]] = trainData.data.toArray
-      val trainY: Array[Int] = trainData.getNumericTargets.toArray
-
-      val n = trainX.length
-
-      val proximity = new Array[Array[Double]](n)
-
-      (0 until n).foreach{ itr =>
-        proximity(itr) = new Array[Double](itr + 1)
-        (0 until itr).foreach{ innerItr =>
-          proximity(itr)(innerItr) = Math.distance(trainX(itr), trainX(innerItr))
-        }
-      }
-
-      println(">>>>>>><<<<<<$$")
+    "be able to test singleLinkage" in {
       val hc = HierarchicalClustering(SingleLinkage(proximity))
 
       val label = hc.partition(10)
-      val r = AdjustRandIndex.measureRand(trainY.toList, label.toList)
-      val r2 = AdjustRandIndex.measure(trainY.toList, label.toList)
-      println("######")
+      val r = AdjustRandIndex.measureRand(trainY, label)
+      val r2 = AdjustRandIndex.measure(trainY, label)
       println(s"SingleLinkage rand index = ${100.0 * r}\tadjusted rand index = ${100.0 * r2}")
 
       assert(r > 0.1)
     }
+
+    "be able to test Complete linkage" in {
+      val hc = HierarchicalClustering(CompleteLinkage(proximity))
+
+      val label = hc.partition(10)
+      val r = AdjustRandIndex.measureRand(trainY, label)
+      val r2 = AdjustRandIndex.measure(trainY, label)
+      println(s"CompleteLinkage rand index = ${100.0 * r}\tadjusted rand index = ${100.0 * r2}")
+
+      assert(r > 0.75)
+    }
   }
+
 
 }
 

@@ -2,6 +2,13 @@ package ksai.core.cluster.linkage
 
 trait Linkage {
 
+
+  /**
+    * The proximity matrix to store the pair-wise distance measure as
+    * dissimilarity between clusters. To save space, we only need the
+    * lower half of matrix. During the clustering, this matrix will be
+    * updated to reflect the dissimilarity of merged clusters.
+    */
   val proximity: Array[Array[Double]]
 
   /**

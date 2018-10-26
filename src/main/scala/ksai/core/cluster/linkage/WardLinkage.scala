@@ -1,8 +1,18 @@
 package ksai.core.cluster.linkage
 
+
+/**
+  * Ward's linkage. Ward's linkage follows the analysis of variance approach
+  * The dissimilarity between two clusters is computed as the
+  * increase in the "error sum of squares" (ESS) after fusing two clusters
+  * into a single cluster. Ward's Method seeks to choose the successive
+  * clustering steps so as to minimize the increase in ESS at each step.
+  * Note that it is only valid for Euclidean distance based proximity matrix.
+  *
+  */
 case class WardLinkage(proximity: Array[Array[Double]], samples: Array[Int]) extends Linkage {
 
-  override def toString: String = "Ward's linkage"
+  override def toString = "Ward's linkage"
 
   override def merge(firstClusterId: Int, secondClusterId: Int): Unit = {
 

@@ -24,10 +24,10 @@ case class FastPair(
   def remove(point: Int) = {
     this.copy(npoints = npoints - 1)
     val q = index(point)
-    points(q) = points(npoints)
-    index(points(npoints)) = q
+    points(q) = points(npoints - 1)
+    index(points(q)) = q
 
-    (0 until npoints).foreach { itr =>
+    (0 until npoints - 1).foreach { itr =>
       if (neighbor(points(itr)) == point) {
         findNeighbor(points(itr))
       }

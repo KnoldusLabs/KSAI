@@ -1,8 +1,15 @@
 package ksai.core.cluster.linkage
 
+
+/**
+  * Weighted Pair Group Method using Centroids (also known as median linkage).
+  * The distance between two clusters is the Euclidean distance between their
+  * weighted centroids. Only valid for Euclidean distance based proximity matrix.
+  *
+  */
 case class WPGMCLinkage(proximity: Array[Array[Double]]) extends Linkage {
 
-  override def toString: String = "WPGMC linkage"
+  override def toString = "WPGMC linkage"
 
   override def merge(firstClusterId: Int, secondClusterId: Int): Unit = {
 
