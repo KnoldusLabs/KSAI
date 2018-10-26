@@ -9,7 +9,19 @@ import scala.util.Try
 
 case class HierarchicalClustering(
                                    serialVersionUID: Long = 1L,
+                                   /**
+                                     * An n-1 by 2 matrix of which row i describes the merging of clusters at
+                                     * step i of the clustering. If an element j in the row is less than n, then
+                                     * observation j was merged at this stage. If j &ge; n then the merge
+                                     * was with the cluster formed at the (earlier) stage j-n of the algorithm.
+                                     */
                                    merge: Array[Array[Int]],
+
+                                   /**
+                                     * A set of n-1 non-decreasing real values, which are the clustering height,
+                                     * i.e., the value of the criterion associated with the clustering method
+                                     * for the particular agglomeration.
+                                     */
                                    height: Array[Double]
                                  ) {
   def partition(clusters: Int): Array[Int] = {
@@ -50,6 +62,7 @@ case class HierarchicalClustering(
 
     queue.enqueue(cluster)
 
+    inner
     def inner: Unit = {
       Try(queue.dequeue).toOption match {
         case None =>
